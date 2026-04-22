@@ -1,0 +1,122 @@
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { getServerSession } from "next-auth/next";
+import { getValidTokens } from "@/lib/auth-utils";
+import { authOptions } from "../auth/[...nextauth]/route";
+import { google } from "googleapis";
+
+export async function POST(req: Request) {
+  try {
+    const { to, emailData, draftId } = await req.json();
+    const session = await getServerSession(authOptions);
+
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email },
+    });
+
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    const tokens = await getValidTokens(user.id);
+
+    if (!tokens || !tokens.refreshToken) {
+      return NextResponse.json(
+        { error: "Gmail connection expired. Please sign out and sign in again to reconnect." },
+        { status: 401 }
+      );
+    }
+
+    const OAuth2 = google.auth.OAuth2;
+    const oauth2Client = new OAuth2(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET
+    );
+
+    // Google API client automatically handles access token generation if refresh_token is provided
+    oauth2Client.setCredentials({
+      refresh_token: tokens.refreshToken,
+    });
+
+    const gmail = google.gmail({ version: "v1", auth: oauth2Client });
+
+    // Ensure we have a valid parsed emailData
+    const blockData = typeof emailData === 'string' ? JSON.parse(emailData) : emailData;
+    const subject = blockData?.subject || "Personalized Outreach";
+    
+    // Construct HTML out of the JSON blocks
+    let htmlContent = "";
+    if (blockData?.blocks && Array.isArray(blockData.blocks)) {
+      blockData.blocks.forEach((block: any) => {
+        if (block.type === 'text') {
+           htmlContent += `<p style="margin: 0 0 16px 0; text-align: ${block.styles?.alignment || 'left'}; font-size: ${block.styles?.fontSize || '15px'}; color: ${block.styles?.color || '#1f2937'};">${(block.content?.text || '').replace(/\n/g, "<br />")}</p>`;
+        } else if (block.type === 'image') {
+           htmlContent += `<div style="text-align: ${block.styles?.alignment || 'center'}; margin: 16px 0;"><img src="${block.content?.url || 'https://images.unsplash.com/photo-1579389083078-4e7018379f7e?w=800&q=80'}" alt="Header" style="max-width: 100%; height: auto; border-radius: 8px;" /></div>`;
+        } else if (block.type === 'cta') {
+           htmlContent += `<div style="text-align: ${block.styles?.alignment || 'center'}; margin: 32px 0;"><a href="${block.content?.link || '#'}" style="display: inline-block; padding: 14px 28px; background-color: ${block.styles?.backgroundColor || '#4f46e5'}; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: ${block.styles?.fontSize || '15px'};">${block.content?.text || 'Click Here'}</a></div>`;
+        } else if (block.type === 'signature') {
+           htmlContent += `<div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #e5e7eb; text-align: ${block.styles?.alignment || 'left'}; font-size: ${block.styles?.fontSize || '14px'}; color: ${block.styles?.color || '#4b5563'};">${(block.content?.text || '').replace(/\n/g, "<br />")}</div>`;
+        }
+      });
+    } else {
+      // Fallback if not structured
+      htmlContent = `<p>${JSON.stringify(emailData)}</p>`;
+    }
+
+    const htmlBody = `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; line-height: 1.6;">
+        ${htmlContent}
+      </div>
+    `;
+
+    // Properly format the email as MIME for Gmail API
+    const utf8Subject = `=?utf-8?B?${Buffer.from(subject).toString("base64")}?=`;
+    const messageParts = [
+      `From: ${session.user.name ?? "Outreach"} <${session.user.email}>`,
+      `To: ${to}`,
+      `Subject: ${utf8Subject}`,
+      "Content-Type: text/html; charset=utf-8",
+      "MIME-Version: 1.0",
+      "",
+      htmlBody,
+    ];
+    const message = messageParts.join("\r\n");
+
+    // Base64url encode the message as required by Gmail API
+    const encodedMessage = Buffer.from(message)
+      .toString("base64")
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/, "");
+
+    // Send the email via native Gmail API rather than SMTP
+    const response = await gmail.users.messages.send({
+      userId: "me",
+      requestBody: {
+        raw: encodedMessage,
+      },
+    });
+
+    if (draftId) {
+      await prisma.emailDraft.update({
+        where: { id: draftId },
+        data: { status: "sent", sentAt: new Date() },
+      });
+    }
+
+    return NextResponse.json({ success: true, messageId: response.data.id });
+  } catch (error: any) {
+    console.error("Email send error:", error);
+    
+    let errorMessage = error.message || "Failed to send email";
+    if (errorMessage.includes("535") || errorMessage.includes("BadCredentials") || errorMessage.includes("invalid_grant")) {
+      errorMessage = "Gmail Authentication Failed. Please Sign Out and Sign In again, ensuring you check the 'Send email' permission box.";
+    }
+
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
+  }
+}
