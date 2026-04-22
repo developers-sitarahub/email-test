@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   description: 'AI-powered email outreach platform for personalized cold emails — Mail by GPSERP',
   generator: 'v0.app',
   verification: {
-    google: 'PASTE_YOUR_GOOGLE_VERIFICATION_CODE_HERE',
+    google: '4cip6EUw-KPPk_WrnhitFBdcrTLFj_IooYSwb6sAB3M',
   },
   icons: {
     icon: [
