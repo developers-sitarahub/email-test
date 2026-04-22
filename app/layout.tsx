@@ -9,9 +9,12 @@ const _geist = Geist({ subsets: ["latin"] });
 const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: 'AI Email Outreach Dashboard',
-  description: 'AI-powered email outreach platform for personalized cold emails',
+  title: 'Mail by GPSERP',
+  description: 'AI-powered email outreach platform for personalized cold emails — Mail by GPSERP',
   generator: 'v0.app',
+  verification: {
+    google: 'PASTE_YOUR_GOOGLE_VERIFICATION_CODE_HERE',
+  },
   icons: {
     icon: [
       {

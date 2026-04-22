@@ -13,6 +13,9 @@ const nextConfig = {
   },
   turbopack: {
     root: __dirname,
+    resolveAlias: {
+      tailwindcss: path.join(__dirname, "node_modules", "tailwindcss"),
+    },
   },
 }
 

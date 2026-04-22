@@ -38,7 +38,7 @@ export default function SignInPage() {
                         <div className="p-2.5 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 shadow-lg shadow-indigo-500/30">
                             <Mail className="w-6 h-6 text-white" />
                         </div>
-                        <span className="text-2xl font-bold text-white tracking-tight">OutreachAI</span>
+                        <span className="text-2xl font-bold text-white tracking-tight">Mail by GPSERP</span>
                     </div>
 
                     <h1 className="text-4xl font-bold text-white leading-tight mb-4">
@@ -86,7 +86,7 @@ export default function SignInPage() {
                         <div className="p-2 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600">
                             <Mail className="w-5 h-5 text-white" />
                         </div>
-                        <span className="text-xl font-bold text-foreground">OutreachAI</span>
+                        <span className="text-xl font-bold text-foreground">Mail by GPSERP</span>
                     </div>
 
                     <h2 className="text-3xl font-bold text-foreground mb-2">Welcome back</h2>
@@ -111,7 +111,11 @@ export default function SignInPage() {
                     </motion.button>
 
                     <p className="text-center text-xs text-muted-foreground mt-6 leading-relaxed">
-                        By continuing, you agree to our Terms of Service and Privacy Policy.<br />
+                        By continuing, you agree to our{" "}
+                        <a href="/terms" className="underline hover:text-foreground transition-colors">Terms of Service</a>
+                        {" "}and{" "}
+                        <a href="/privacy" className="underline hover:text-foreground transition-colors">Privacy Policy</a>.
+                        <br />
                         We request Gmail Send permission — we never read your inbox.
                     </p>
                 </motion.div>

@@ -42,7 +42,7 @@ export function Header() {
             </motion.div>
             <div>
               <h1 className="text-lg font-bold text-foreground tracking-tight bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-                Outreach
+                Mail by GPSERP
               </h1>
               <p className="text-xs text-muted-foreground">
                 AI-powered email automation
