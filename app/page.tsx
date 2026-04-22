@@ -41,6 +41,14 @@ export default function Dashboard() {
   const [includeCta, setIncludeCta] = useState(true);
   const [includeSignature, setIncludeSignature] = useState(true);
 
+  const calculateRecipientCount = useCallback((data: string[][]) => {
+    if (data.length === 0) return 0;
+    const hasHeader = data[0].some(cell => 
+      cell.toLowerCase().includes("email") || cell.toLowerCase().includes("name")
+    );
+    return hasHeader ? Math.max(0, data.length - 1) : data.length;
+  }, []);
+
   const handleDataChange = useCallback((data: string[][]) => {
     setCsvData(data);
     setPreviews([]);
@@ -70,9 +78,14 @@ export default function Dashboard() {
         await new Promise((resolve) => setTimeout(resolve, 300));
         setPreviews((prev) => [...prev, processedPreviews[i]]);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error generating emails:", error);
-      alert("Failed to generate emails.");
+      const msg = error.response?.data?.error || error.message;
+      if (msg.includes("503") || msg.includes("high demand")) {
+        alert("The AI service is currently busy (High Demand). Please wait a minute and try again.");
+      } else {
+        alert("Failed to generate emails: " + msg);
+      }
     } finally {
       setIsProcessing(false);
     }
@@ -204,7 +217,7 @@ export default function Dashboard() {
       </main>
 
       <ActionBar
-        totalEmails={csvData.length}
+        totalEmails={calculateRecipientCount(csvData)}
         sentEmails={sentEmails}
         isSending={isSending}
         onSendAll={handleSendAll}

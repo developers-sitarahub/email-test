@@ -34,7 +34,14 @@ export function InputSection({ onDataChange }: InputSectionProps) {
         reader.onload = (event) => {
           const text = event.target?.result as string;
           const parsed = parseCSV(text);
-          setRowCount(parsed.length);
+          
+          // Determine if first row is a header
+          const hasHeader = parsed.length > 0 && parsed[0].some(cell => 
+            cell.toLowerCase().includes("email") || cell.toLowerCase().includes("name")
+          );
+          
+          const actualCount = hasHeader ? Math.max(0, parsed.length - 1) : parsed.length;
+          setRowCount(actualCount);
           onDataChange(parsed);
         };
         reader.readAsText(file);
@@ -52,7 +59,14 @@ export function InputSection({ onDataChange }: InputSectionProps) {
         reader.onload = (event) => {
           const text = event.target?.result as string;
           const parsed = parseCSV(text);
-          setRowCount(parsed.length);
+          
+          // Determine if first row is a header
+          const hasHeader = parsed.length > 0 && parsed[0].some(cell => 
+            cell.toLowerCase().includes("email") || cell.toLowerCase().includes("name")
+          );
+          
+          const actualCount = hasHeader ? Math.max(0, parsed.length - 1) : parsed.length;
+          setRowCount(actualCount);
           onDataChange(parsed);
         };
         reader.readAsText(file);
@@ -66,7 +80,7 @@ export function InputSection({ onDataChange }: InputSectionProps) {
       const emails = manualInput
         .split(/[\n,]/)
         .map((email) => email.trim())
-        .filter((email) => email);
+        .filter((email) => email && email.includes("@")); // Filter for valid-looking emails
       setRowCount(emails.length);
       onDataChange(emails.map((email) => [email]));
     }
@@ -157,7 +171,7 @@ export function InputSection({ onDataChange }: InputSectionProps) {
                         <CheckCircle2 className="w-4 h-4 text-success" />
                       </div>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        {rowCount} recipients ready
+                        {rowCount} Email IDs found
                       </p>
                     </div>
                   </div>

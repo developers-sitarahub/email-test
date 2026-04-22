@@ -29,11 +29,11 @@ export async function POST(request: Request) {
     }
 
     if (dataToProcess.length === 0) {
-      return NextResponse.json({ error: "No valid recipient rows found" }, { status: 400 });
+      return NextResponse.json({ error: "No valid email IDs found" }, { status: 400 });
     }
 
     const useMock = !process.env.GEMINI_API_KEY;
-    const modelId = "gemini-flash-latest"; // Using the correct latest stable alias
+    const modelId = "gemini-flash-latest"; // Using the alias confirmed to work in this environment
 
     // ── Create a Campaign row if user is signed in ─────────────────────
     let campaign: { id: string } | null = null;
@@ -67,7 +67,7 @@ Your task is to generate a **structured, block-based email in JSON format**, bas
 
 Base prompt: "${prompt}"
 
-We have ${dataToProcess.length} recipients. Write a personalized cold email for each one based on the Base prompt and their Recipient data.
+We have ${dataToProcess.length} email IDs. Write a personalized cold email for each one based on the Base prompt and their Recipient data.
 You MUST output ONLY a valid JSON array of objects. Each object represents an email and MUST STRICTLY follow this exact schema:
 
 {
@@ -111,21 +111,44 @@ ${recipientsContext}`;
       console.log("Mocking generation because GEMINI_API_KEY is missing.");
       batchGeneratedEmails = dataToProcess.map((row) => `(Mock) Hi ${row[0] || "there"},\n\n${prompt}`);
     } else {
-      const aiModel = genAI.getGenerativeModel({
-        model: modelId,
-        generationConfig: { responseMimeType: "application/json" }
-      });
-      
-      const result = await aiModel.generateContent(batchPrompt);
-      let textResponse = result.response.text().trim();
-      textResponse = textResponse.replace(/^```json/i, '').replace(/^```/i, '').replace(/```$/i, '').trim();
+      let textResponse = "";
+      let attempts = 0;
+      const maxAttempts = 5;
+      const modelsToTry = [modelId, "gemini-1.5-flash-8b", "gemini-1.5-flash-latest"];
+
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        const currentModelId = modelsToTry[(attempt - 1) % modelsToTry.length];
+        const currentModel = genAI.getGenerativeModel({ 
+          model: currentModelId,
+          generationConfig: { responseMimeType: "application/json" }
+        });
+
+        try {
+          console.log(`AI Generation attempt ${attempt} using ${currentModelId}...`);
+          const result = await currentModel.generateContent(batchPrompt);
+          textResponse = result.response.text().trim();
+          if (textResponse) break; 
+        } catch (e: any) {
+          console.warn(`Attempt ${attempt} (${currentModelId}) failed:`, e.message);
+          if (attempt === maxAttempts) throw e;
+          
+          // Exponential backoff: 3s, 6s, 9s, 12s
+          const delay = attempt * 3000;
+          console.log(`Waiting ${delay}ms before next attempt...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
+
+      // Robust JSON Extraction: Find the first [ and last ]
+      const jsonMatch = textResponse.match(/\[[\s\S]*\]/);
+      const cleanedJson = jsonMatch ? jsonMatch[0] : textResponse;
       
       let parsedArray: any;
       try {
-        parsedArray = JSON.parse(textResponse);
+        parsedArray = JSON.parse(cleanedJson);
       } catch (e) {
-        console.error("JSON parse failed:", textResponse);
-        throw new Error("Failed to parse JSON response from AI.");
+        console.error("JSON parse failed. Original response snippet:", textResponse.substring(0, 100));
+        throw new Error("AI returned malformed JSON content.");
       }
 
       // If AI wrapped the array in an object (e.g. { emails: [...] })
