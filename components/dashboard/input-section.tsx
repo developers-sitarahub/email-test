@@ -1,8 +1,9 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { Upload, Users, FileSpreadsheet, X, CheckCircle2, Maximize } from "lucide-react";
+import { Upload, Users, FileSpreadsheet, X, CheckCircle2, Maximize, Layers } from "lucide-react";
 import { useState, useCallback } from "react";
+import * as XLSX from "xlsx";
 
 interface InputSectionProps {
   onDataChange: (data: string[][]) => void;
@@ -18,76 +19,94 @@ export function InputSection({ onDataChange }: InputSectionProps) {
   const [hasHeaderRow, setHasHeaderRow] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  const parseCSV = (text: string): string[][] => {
-    return text
-      .trim()
-      .split("\n")
-      .map((row) => row.split(",").map((cell) => cell.trim()));
-  };
+  // Multi-sheet state
+  const [workbook, setWorkbook] = useState<XLSX.WorkBook | null>(null);
+  const [sheetNames, setSheetNames] = useState<string[]>([]);
+  const [activeSheet, setActiveSheet] = useState<string | null>(null);
 
-  const handleDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault();
-      setIsDragging(false);
+  const applySheetData = useCallback((wb: XLSX.WorkBook, sheetName: string) => {
+    const sheet = wb.Sheets[sheetName];
+    const raw: string[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" }) as string[][];
+    // Remove completely blank rows
+    const cleaned = raw.filter(row => row.some(cell => String(cell).trim() !== ""));
+    const hasHeader = cleaned.length > 0 && cleaned[0].some(cell =>
+      String(cell).toLowerCase().includes("email") || String(cell).toLowerCase().includes("name")
+    );
+    const count = hasHeader ? Math.max(0, cleaned.length - 1) : cleaned.length;
+    setHasHeaderRow(hasHeader);
+    setRowCount(count);
+    setParsedData(cleaned);
+    setActiveSheet(sheetName);
+    onDataChange(cleaned);
+  }, [onDataChange]);
 
-      const file = e.dataTransfer.files[0];
-      if (file && (file.type === "text/csv" || file.name.endsWith(".csv"))) {
-        setFileName(file.name);
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          const text = event.target?.result as string;
-          const parsed = parseCSV(text);
-          
-          // Determine if first row is a header
-          const hasHeader = parsed.length > 0 && parsed[0].some(cell => 
-            cell.toLowerCase().includes("email") || cell.toLowerCase().includes("name")
-          );
-          
-          const actualCount = hasHeader ? Math.max(0, parsed.length - 1) : parsed.length;
-          setRowCount(actualCount);
-          setHasHeaderRow(hasHeader);
-          setParsedData(parsed);
-          onDataChange(parsed);
-        };
-        reader.readAsText(file);
+  const processFile = useCallback(async (file: File) => {
+    setFileName(file.name);
+    const isCSV = file.name.toLowerCase().endsWith(".csv") || file.type === "text/csv";
+
+    if (isCSV) {
+      try {
+        const text = await file.text();
+        const rows = text.trim().split("\n").map(row =>
+          row.split(",").map(cell => cell.trim().replace(/^"|"$/g, ""))
+        );
+        const hasHeader = rows.length > 0 && rows[0].some(cell =>
+          cell.toLowerCase().includes("email") || cell.toLowerCase().includes("name")
+        );
+        const count = hasHeader ? Math.max(0, rows.length - 1) : rows.length;
+        setHasHeaderRow(hasHeader);
+        setRowCount(count);
+        setParsedData(rows);
+        setActiveSheet(null);
+        setSheetNames([]);
+        setWorkbook(null);
+        onDataChange(rows);
+      } catch (err) {
+        console.error("Failed to read CSV:", err);
       }
-    },
-    [onDataChange]
-  );
-
-  const handleFileInput = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (file) {
-        setFileName(file.name);
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          const text = event.target?.result as string;
-          const parsed = parseCSV(text);
-          
-          // Determine if first row is a header
-          const hasHeader = parsed.length > 0 && parsed[0].some(cell => 
-            cell.toLowerCase().includes("email") || cell.toLowerCase().includes("name")
-          );
-          
-          const actualCount = hasHeader ? Math.max(0, parsed.length - 1) : parsed.length;
-          setRowCount(actualCount);
-          setHasHeaderRow(hasHeader);
-          setParsedData(parsed);
-          onDataChange(parsed);
-        };
-        reader.readAsText(file);
+    } else {
+      // Excel file — use native file.arrayBuffer() for most reliable binary read
+      try {
+        const buffer = await file.arrayBuffer();
+        const wb = XLSX.read(buffer, { type: "buffer" });
+        if (!wb.SheetNames || wb.SheetNames.length === 0) {
+          throw new Error("No sheets found in this workbook.");
+        }
+        setWorkbook(wb);
+        setSheetNames(wb.SheetNames);
+        applySheetData(wb, wb.SheetNames[0]);
+      } catch (err) {
+        console.error("Failed to parse Excel file:", err);
+        setFileName(null);
+        setParsedData([]);
+        setRowCount(0);
+        setWorkbook(null);
+        setSheetNames([]);
+        alert("Could not read this file. Please make sure it is a valid .xlsx or .xls file.");
       }
-    },
-    [onDataChange]
-  );
+    }
+  }, [onDataChange, applySheetData]);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files[0];
+    if (file) processFile(file);
+  }, [processFile]);
+
+  const handleFileInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) processFile(file);
+    // Reset the input so the same file can be re-selected
+    e.target.value = "";
+  }, [processFile]);
 
   const handleManualSubmit = () => {
     if (manualInput.trim()) {
       const emails = manualInput
         .split(/[\n,]/)
         .map((email) => email.trim())
-        .filter((email) => email && email.includes("@")); // Filter for valid-looking emails
+        .filter((email) => email && email.includes("@"));
       setRowCount(emails.length);
       onDataChange(emails.map((email) => [email]));
     }
@@ -97,11 +116,14 @@ export function InputSection({ onDataChange }: InputSectionProps) {
     setFileName(null);
     setRowCount(0);
     setParsedData([]);
+    setWorkbook(null);
+    setSheetNames([]);
+    setActiveSheet(null);
     onDataChange([]);
   };
 
   const tabs = [
-    { id: "csv" as const, label: "Upload CSV", icon: Upload },
+    { id: "csv" as const, label: "Upload File", icon: Upload },
     { id: "manual" as const, label: "Manual Entry", icon: Users },
   ];
 
@@ -163,6 +185,7 @@ export function InputSection({ onDataChange }: InputSectionProps) {
             >
               {fileName ? (
                 <div className="space-y-4">
+                  {/* File Success Banner */}
                   <motion.div
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
@@ -174,13 +197,12 @@ export function InputSection({ onDataChange }: InputSectionProps) {
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
-                          <p className="text-sm font-semibold text-foreground">
-                            {fileName}
-                          </p>
+                          <p className="text-sm font-semibold text-foreground">{fileName}</p>
                           <CheckCircle2 className="w-4 h-4 text-success" />
                         </div>
                         <p className="text-xs text-muted-foreground mt-0.5">
                           {rowCount} Email IDs found
+                          {sheetNames.length > 1 && ` · ${sheetNames.length} sheets`}
                         </p>
                       </div>
                     </div>
@@ -194,6 +216,38 @@ export function InputSection({ onDataChange }: InputSectionProps) {
                     </motion.button>
                   </motion.div>
 
+                  {/* Sheet Selector — only for Excel with multiple sheets */}
+                  {workbook && sheetNames.length > 1 && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="rounded-xl border border-border bg-secondary/20 p-3 space-y-2"
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        <Layers className="w-3.5 h-3.5 text-muted-foreground" />
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                          Select Sheet
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {sheetNames.map((name) => (
+                          <button
+                            key={name}
+                            onClick={() => applySheetData(workbook, name)}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                              activeSheet === name
+                                ? "bg-primary text-white border-primary shadow-md shadow-primary/20"
+                                : "bg-card text-muted-foreground border-border hover:border-primary/50 hover:text-foreground"
+                            }`}
+                          >
+                            {name}
+                          </button>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {/* Data Preview Table */}
                   {parsedData.length > 0 && (
                     <motion.div
                       initial={{ opacity: 0, y: 10 }}
@@ -207,7 +261,7 @@ export function InputSection({ onDataChange }: InputSectionProps) {
                               <th className="px-4 py-2 font-semibold text-muted-foreground w-12 text-center border-r border-border/50">#</th>
                               {hasHeaderRow ? (
                                 parsedData[0].map((header, i) => (
-                                  <th key={i} className="px-4 py-2 font-semibold text-muted-foreground whitespace-nowrap">{header}</th>
+                                  <th key={i} className="px-4 py-2 font-semibold text-muted-foreground whitespace-nowrap">{String(header)}</th>
                                 ))
                               ) : (
                                 parsedData[0].map((_, i) => (
@@ -221,7 +275,7 @@ export function InputSection({ onDataChange }: InputSectionProps) {
                               <tr key={i} className="hover:bg-secondary/20 transition-colors">
                                 <td className="px-4 py-2 text-muted-foreground/60 text-center border-r border-border/50 font-mono text-[10px]">{i + 1}</td>
                                 {row.map((cell, j) => (
-                                  <td key={j} className="px-4 py-2 text-foreground whitespace-nowrap max-w-[250px] truncate" title={cell}>{cell}</td>
+                                  <td key={j} className="px-4 py-2 text-foreground whitespace-nowrap max-w-[250px] truncate" title={String(cell)}>{String(cell)}</td>
                                 ))}
                               </tr>
                             ))}
@@ -230,7 +284,9 @@ export function InputSection({ onDataChange }: InputSectionProps) {
                       </div>
                       <div className="flex items-center justify-between p-2 bg-secondary/30 border-t border-border">
                         <div className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
-                          {parsedData.length > (hasHeaderRow ? 21 : 20) ? `Showing first 20 rows of ${parsedData.length - (hasHeaderRow ? 1 : 0)}` : `Showing all ${parsedData.length - (hasHeaderRow ? 1 : 0)} rows`}
+                          {parsedData.length > (hasHeaderRow ? 21 : 20)
+                            ? `Showing first 20 rows of ${parsedData.length - (hasHeaderRow ? 1 : 0)}`
+                            : `Showing all ${parsedData.length - (hasHeaderRow ? 1 : 0)} rows`}
                         </div>
                         <button onClick={() => setIsFullscreen(true)} className="flex items-center gap-1 px-2 py-1 text-[10px] uppercase tracking-wider font-bold text-primary hover:bg-primary/10 rounded transition-colors">
                           <Maximize className="w-3 h-3" />
@@ -242,10 +298,7 @@ export function InputSection({ onDataChange }: InputSectionProps) {
                 </div>
               ) : (
                 <motion.label
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    setIsDragging(true);
-                  }}
+                  onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
                   onDragLeave={() => setIsDragging(false)}
                   onDrop={handleDrop}
                   whileHover={{ scale: 1.01 }}
@@ -260,27 +313,23 @@ export function InputSection({ onDataChange }: InputSectionProps) {
                     animate={isDragging ? { y: -8, scale: 1.1 } : { y: 0, scale: 1 }}
                     transition={{ type: "spring", stiffness: 400, damping: 20 }}
                     className={`flex items-center justify-center w-16 h-16 rounded-2xl transition-all ${
-                      isDragging 
-                        ? "bg-gradient-to-br from-primary to-accent shadow-xl shadow-primary/30" 
+                      isDragging
+                        ? "bg-gradient-to-br from-primary to-accent shadow-xl shadow-primary/30"
                         : "bg-secondary"
                     }`}
                   >
                     <Upload className={`w-7 h-7 ${isDragging ? "text-white" : "text-muted-foreground"}`} />
                   </motion.div>
                   <div className="text-center">
-                    <p className="text-sm font-medium text-foreground">
-                      Drop your CSV file here
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      or click to browse from your computer
-                    </p>
+                    <p className="text-sm font-medium text-foreground">Drop your file here</p>
+                    <p className="text-xs text-muted-foreground mt-1">or click to browse from your computer</p>
                   </div>
                   <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-secondary text-xs text-muted-foreground">
-                    <span>Supports: .csv files</span>
+                    <span>Supports: .csv, .xlsx, .xls</span>
                   </div>
                   <input
                     type="file"
-                    accept=".csv"
+                    accept=".csv,.xlsx,.xls"
                     onChange={handleFileInput}
                     className="hidden"
                   />
@@ -329,19 +378,38 @@ export function InputSection({ onDataChange }: InputSectionProps) {
               <div className="flex items-center justify-between p-4 border-b border-border bg-secondary/50">
                 <div className="flex items-center gap-2">
                   <FileSpreadsheet className="w-5 h-5 text-success" />
-                  <h3 className="font-semibold text-foreground">{fileName} - Data Preview</h3>
+                  <h3 className="font-semibold text-foreground">
+                    {fileName}{activeSheet ? ` · ${activeSheet}` : ""} — Data Preview
+                  </h3>
                   <span className="px-2 py-0.5 rounded-full bg-secondary text-xs text-muted-foreground ml-2">
                     {parsedData.length - (hasHeaderRow ? 1 : 0)} rows
                   </span>
                 </div>
-                <button
-                  onClick={() => setIsFullscreen(false)}
-                  className="p-2 rounded-lg hover:bg-secondary transition-colors"
-                >
-                  <X className="w-5 h-5 text-muted-foreground" />
-                </button>
+                <div className="flex items-center gap-3">
+                  {/* Sheet switcher in fullscreen too */}
+                  {workbook && sheetNames.length > 1 && (
+                    <div className="flex items-center gap-1.5">
+                      {sheetNames.map((name) => (
+                        <button
+                          key={name}
+                          onClick={() => applySheetData(workbook, name)}
+                          className={`px-3 py-1 rounded-lg text-xs font-medium border transition-all ${
+                            activeSheet === name
+                              ? "bg-primary text-white border-primary"
+                              : "bg-card text-muted-foreground border-border hover:border-primary/50"
+                          }`}
+                        >
+                          {name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <button onClick={() => setIsFullscreen(false)} className="p-2 rounded-lg hover:bg-secondary transition-colors">
+                    <X className="w-5 h-5 text-muted-foreground" />
+                  </button>
+                </div>
               </div>
-              
+
               <div className="flex-1 overflow-auto bg-card hide-scrollbar">
                 <table className="w-full text-left text-sm">
                   <thead className="bg-secondary/50 sticky top-0 z-10 backdrop-blur-md shadow-sm">
@@ -349,7 +417,7 @@ export function InputSection({ onDataChange }: InputSectionProps) {
                       <th className="px-4 py-3 font-semibold text-muted-foreground w-12 text-center border-r border-border/50">#</th>
                       {hasHeaderRow ? (
                         parsedData[0].map((header, i) => (
-                          <th key={i} className="px-4 py-3 font-semibold text-muted-foreground whitespace-nowrap border-b border-border">{header}</th>
+                          <th key={i} className="px-4 py-3 font-semibold text-muted-foreground whitespace-nowrap border-b border-border">{String(header)}</th>
                         ))
                       ) : (
                         parsedData[0].map((_, i) => (
@@ -363,7 +431,7 @@ export function InputSection({ onDataChange }: InputSectionProps) {
                       <tr key={i} className="hover:bg-secondary/20 transition-colors">
                         <td className="px-4 py-2 text-muted-foreground/60 text-center border-r border-border/50 font-mono text-xs">{i + 1}</td>
                         {row.map((cell, j) => (
-                          <td key={j} className="px-4 py-2 text-foreground whitespace-nowrap max-w-[400px] truncate" title={cell}>{cell}</td>
+                          <td key={j} className="px-4 py-2 text-foreground whitespace-nowrap max-w-[400px] truncate" title={String(cell)}>{String(cell)}</td>
                         ))}
                       </tr>
                     ))}
@@ -372,7 +440,7 @@ export function InputSection({ onDataChange }: InputSectionProps) {
               </div>
               {parsedData.length > 1001 && (
                 <div className="p-2 text-center text-xs text-muted-foreground bg-secondary/30 border-t border-border">
-                  Showing first 1000 rows only to prevent lag. Your actual file has {parsedData.length - (hasHeaderRow ? 1 : 0)} rows.
+                  Showing first 1000 rows only. Your actual file has {parsedData.length - (hasHeaderRow ? 1 : 0)} rows.
                 </div>
               )}
             </div>
