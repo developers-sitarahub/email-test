@@ -237,8 +237,8 @@ export default function Dashboard() {
           </motion.div>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-2">
-          <div className="space-y-6">
+        <div className="grid gap-6 lg:grid-cols-5">
+          <div className="space-y-6 lg:col-span-2">
             <InputSection onDataChange={handleDataChange} />
             <ConfigPanel
               prompt={prompt}
@@ -278,7 +278,7 @@ export default function Dashboard() {
             />
           </div>
 
-          <div className="lg:sticky lg:top-24 lg:self-start">
+          <div className="lg:sticky lg:top-24 lg:self-start lg:col-span-3">
             <PreviewGrid
               previews={previews}
               isProcessing={isProcessing}

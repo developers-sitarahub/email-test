@@ -443,7 +443,7 @@ export function ConfigPanel({
                           else onSignatureChange(e.currentTarget.innerHTML);
                         }}
                         onPaste={handleSignaturePaste}
-                        className={`w-full min-h-[6rem] max-h-48 overflow-y-auto px-3 py-2 rounded-lg bg-input border border-border text-sm focus:outline-none focus:ring-2 focus:ring-accent/50 ${!includeSignature ? 'opacity-50 cursor-not-allowed bg-secondary/50' : 'cursor-text'
+                        className={`w-full min-h-[6rem] max-h-48 overflow-y-auto px-3 py-2 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-accent/50 ${!includeSignature ? 'opacity-50 cursor-not-allowed bg-secondary/50 text-foreground' : 'cursor-text bg-white text-black'
                           }`}
                         style={{ minHeight: '6rem' }}
                       />

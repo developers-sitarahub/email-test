@@ -158,9 +158,9 @@ export function PreviewGrid({
                       </span>
                     </div>
 
-                    <div className="grid md:grid-cols-2">
+                    <div className="grid md:grid-cols-3 relative">
                       {/* Original Data */}
-                      <div className="p-4 border-b md:border-b-0 md:border-r border-border">
+                      <div className="p-4 border-b md:border-b-0 md:border-r border-border md:col-span-1">
                         <div className="flex items-center gap-2 mb-3">
                           <FileText className="w-3.5 h-3.5 text-muted-foreground" />
                           <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -175,14 +175,14 @@ export function PreviewGrid({
                       </div>
 
                       {/* Arrow indicator (hidden on mobile) */}
-                      <div className="hidden md:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
+                      <div className="hidden md:flex absolute left-[33.333%] top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
                         <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-r from-primary to-accent shadow-lg">
                           <ArrowRight className="w-4 h-4 text-white" />
                         </div>
                       </div>
 
                       {/* Generated Email */}
-                      <div className="p-4">
+                      <div className="p-4 md:col-span-2">
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center gap-2">
                             <Sparkles className="w-3.5 h-3.5 text-accent" />
@@ -208,7 +208,7 @@ export function PreviewGrid({
                               <textarea
                                 value={editState}
                                 onChange={(e) => setEditState(e.target.value)}
-                                className="w-full min-h-[150px] p-3 text-sm bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-accent/50"
+                                className="w-full min-h-[150px] p-3 text-sm bg-background text-foreground border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-accent/50"
                               />
                             ) : (
                               <div className="flex flex-col gap-4">
@@ -219,7 +219,7 @@ export function PreviewGrid({
                                       type="text"
                                       value={editState.subject}
                                       onChange={(e) => setEditState({...editState, subject: e.target.value})}
-                                      className="w-full p-2.5 text-sm font-medium bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-accent/50"
+                                      className="w-full p-2.5 text-sm font-medium bg-background text-foreground border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-accent/50"
                                     />
                                   </div>
                                 )}
@@ -236,7 +236,7 @@ export function PreviewGrid({
                                               newBlocks[idx] = { ...newBlocks[idx], content: { ...newBlocks[idx].content, text: e.target.value } };
                                               setEditState({...editState, blocks: newBlocks});
                                             }}
-                                            className="w-full min-h-[120px] p-3 text-sm bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-accent/50 leading-relaxed"
+                                            className="w-full min-h-[120px] p-3 text-sm bg-background text-foreground border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-accent/50 leading-relaxed"
                                           />
                                         </div>
                                       );
@@ -267,7 +267,7 @@ export function PreviewGrid({
                                     {parsed.blocks.map((block: any, idx: number) => {
                                       if (block.type === 'text') {
                                         return (
-                                          <p key={idx} style={{ textAlign: block.styles?.alignment || 'left', fontSize: block.styles?.fontSize || '14px', color: block.styles?.color || 'inherit' }} className="whitespace-pre-wrap leading-relaxed">
+                                          <p key={idx} style={{ textAlign: block.styles?.alignment || 'left', fontSize: block.styles?.fontSize || '14px' }} className="whitespace-pre-wrap leading-relaxed text-foreground">
                                             {block.content?.text}
                                           </p>
                                         );
@@ -295,11 +295,11 @@ export function PreviewGrid({
                                         if (includeSignature === false) return null;
                                         if (includeSignature && customSignatureHtml) {
                                           return (
-                                            <div key={idx} style={{ textAlign: block.styles?.alignment || 'left', fontSize: block.styles?.fontSize || '14px', color: block.styles?.color || '#4b5563' }} className="mt-4 pt-4 border-t border-border" dangerouslySetInnerHTML={{ __html: customSignatureHtml }} />
+                                            <div key={idx} style={{ textAlign: block.styles?.alignment || 'left', fontSize: block.styles?.fontSize || '14px' }} className="mt-4 pt-4 border-t border-border text-foreground dark:[&_*]:!text-foreground" dangerouslySetInnerHTML={{ __html: customSignatureHtml }} />
                                           );
                                         }
                                         return (
-                                          <div key={idx} style={{ textAlign: block.styles?.alignment || 'left', fontSize: block.styles?.fontSize || '14px', color: block.styles?.color || '#4b5563' }} className="mt-4 pt-4 border-t border-border whitespace-pre-wrap">
+                                          <div key={idx} style={{ textAlign: block.styles?.alignment || 'left', fontSize: block.styles?.fontSize || '14px' }} className="mt-4 pt-4 border-t border-border whitespace-pre-wrap text-muted-foreground dark:[&_*]:!text-muted-foreground">
                                             {block.content?.text || signature}
                                           </div>
                                         );
