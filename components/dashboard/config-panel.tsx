@@ -22,20 +22,26 @@ interface ConfigPanelProps {
   onIncludeCtaChange: (val: boolean) => void;
   includeSignature: boolean;
   onIncludeSignatureChange: (val: boolean) => void;
+  customHeaderImage?: string | null;
+  onCustomHeaderImageChange?: (val: string | null) => void;
+  customSignatureHtml?: string | null;
+  onCustomSignatureHtmlChange?: (val: string | null) => void;
+  attachments?: { name: string, type: string, content: string }[];
+  onAttachmentsChange?: (val: { name: string, type: string, content: string }[]) => void;
 }
 
 const models = [
-  { 
-    id: "gemini-1.5-pro", 
-    name: "Gemini 1.5 Pro", 
+  {
+    id: "gemini-1.5-pro",
+    name: "Gemini 1.5 Pro",
     description: "Most capable, best for complex tasks",
     icon: Brain,
     badge: "Recommended",
     color: "from-violet-500 to-purple-500"
   },
-  { 
-    id: "gemini-1.5-flash", 
-    name: "Gemini 1.5 Flash", 
+  {
+    id: "gemini-1.5-flash",
+    name: "Gemini 1.5 Flash",
     description: "Fast responses, great for bulk operations",
     icon: Zap,
     badge: null,
@@ -61,9 +67,83 @@ export function ConfigPanel({
   onIncludeCtaChange,
   includeSignature,
   onIncludeSignatureChange,
+  customHeaderImage,
+  onCustomHeaderImageChange,
+  customSignatureHtml,
+  onCustomSignatureHtmlChange,
+  attachments,
+  onAttachmentsChange,
 }: ConfigPanelProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const [openSection, setOpenSection] = useState<"header" | "cta" | "signature" | "attachments" | null>(null);
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, callback: (base64: string) => void) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        callback(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleAttachmentUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    files.forEach(file => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        if (onAttachmentsChange && attachments) {
+          onAttachmentsChange([...attachments, { name: file.name, type: file.type, content: reader.result as string }]);
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const removeAttachment = (index: number) => {
+    if (onAttachmentsChange && attachments) {
+      const newAtt = [...attachments];
+      newAtt.splice(index, 1);
+      onAttachmentsChange(newAtt);
+    }
+  };
+
+  const signatureRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (signatureRef.current) {
+      const currentHtml = signatureRef.current.innerHTML;
+      const targetHtml = customSignatureHtml !== null ? customSignatureHtml : signature.replace(/\n/g, '<br/>');
+      if (currentHtml !== targetHtml) {
+        signatureRef.current.innerHTML = targetHtml;
+      }
+    }
+  }, [customSignatureHtml, signature]);
+
+  const handleSignaturePaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
+    // Let text/html pass through normally, but try to catch direct image pastes (like from snipping tool)
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    let hasImage = false;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1) {
+        hasImage = true;
+        const file = items[i].getAsFile();
+        if (file) {
+          e.preventDefault();
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            const base64 = event.target?.result as string;
+            document.execCommand('insertHTML', false, `<img src="${base64}" alt="Pasted Image" style="max-height: 100px; margin: 4px 0;" />`);
+          };
+          reader.readAsDataURL(file);
+        }
+        break; // Only handle the first image to prevent duplicate inserts if there are multiple formats
+      }
+    }
+  };
 
   const selectedModel = models.find((m) => m.id === model) || models[0];
 
@@ -204,15 +284,13 @@ export function ConfigPanel({
                         onModelChange(m.id);
                         setIsDropdownOpen(false);
                       }}
-                      className={`w-full flex items-center gap-4 px-4 py-4 text-left transition-colors hover:bg-secondary ${
-                        model === m.id ? "bg-secondary/50" : ""
-                      }`}
+                      className={`w-full flex items-center gap-4 px-4 py-4 text-left transition-colors hover:bg-secondary ${model === m.id ? "bg-secondary/50" : ""
+                        }`}
                     >
-                      <div className={`flex items-center justify-center w-10 h-10 rounded-xl ${
-                        model === m.id 
-                          ? `bg-gradient-to-br ${m.color} shadow-lg` 
+                      <div className={`flex items-center justify-center w-10 h-10 rounded-xl ${model === m.id
+                          ? `bg-gradient-to-br ${m.color} shadow-lg`
                           : "bg-secondary"
-                      }`}>
+                        }`}>
                         <m.icon className={`w-5 h-5 ${model === m.id ? "text-white" : "text-muted-foreground"}`} />
                       </div>
                       <div className="flex-1">
@@ -237,62 +315,201 @@ export function ConfigPanel({
           </div>
         </div>
 
-        {/* Design & Signature */}
+        {/* Design & Signature Accordion */}
         <div className="space-y-4 pt-4 border-t border-border mt-4">
-          <label className="flex items-center gap-2 text-sm font-medium text-foreground">
+          <label className="flex items-center gap-2 text-sm font-medium text-foreground mb-2">
             <Sparkles className="w-4 h-4 text-primary" />
             Email Design Settings
           </label>
-          
-          {/* Toggles */}
-          <div className="flex flex-wrap gap-4 mb-4">
-            <label className="flex items-center gap-2 text-sm cursor-pointer">
-              <input type="checkbox" checked={includeHeaderImage} onChange={(e) => onIncludeHeaderImageChange(e.target.checked)} className="rounded border-border text-primary focus:ring-primary" />
-              Include AI Header Image
-            </label>
-            <label className="flex items-center gap-2 text-sm cursor-pointer">
-              <input type="checkbox" checked={includeCta} onChange={(e) => onIncludeCtaChange(e.target.checked)} className="rounded border-border text-primary focus:ring-primary" />
-              Include AI CTA Button
-            </label>
-            <label className="flex items-center gap-2 text-sm cursor-pointer">
-              <input type="checkbox" checked={includeSignature} onChange={(e) => onIncludeSignatureChange(e.target.checked)} className="rounded border-border text-primary focus:ring-primary" />
-              Include AI Signature
-            </label>
+
+          {/* Header Image Accordion */}
+          <div className="border border-border rounded-xl overflow-hidden bg-card">
+            <button
+              onClick={() => setOpenSection(openSection === "header" ? null : "header")}
+              className="w-full flex items-center justify-between px-4 py-3 bg-secondary/20 hover:bg-secondary/40 transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-foreground">Header Image</span>
+                {includeHeaderImage && <Check className="w-4 h-4 text-success" />}
+              </div>
+              <motion.div animate={{ rotate: openSection === "header" ? 180 : 0 }}>
+                <ChevronDown className="w-4 h-4 text-muted-foreground" />
+              </motion.div>
+            </button>
+            <AnimatePresence>
+              {openSection === "header" && (
+                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                  <div className="p-4 border-t border-border space-y-4">
+                    <label className="flex items-center gap-2 text-sm cursor-pointer">
+                      <input type="checkbox" checked={includeHeaderImage} onChange={(e) => onIncludeHeaderImageChange(e.target.checked)} className="rounded border-border text-primary focus:ring-primary" />
+                      Include AI Header Image
+                    </label>
+                    {includeHeaderImage && onCustomHeaderImageChange && (
+                      <div className="space-y-2 p-3 bg-secondary/20 rounded-xl border border-border">
+                        <span className="text-xs text-muted-foreground font-medium">Custom Header Image</span>
+                        <div className="flex items-center gap-4">
+                          {customHeaderImage && (
+                            <img src={customHeaderImage} alt="Header Preview" className="h-10 w-20 object-cover rounded shadow" />
+                          )}
+                          <input type="file" accept="image/*" className="text-xs text-muted-foreground file:mr-4 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20" onChange={(e) => handleImageUpload(e, (base64) => onCustomHeaderImageChange(base64))} />
+                          {customHeaderImage && (
+                            <button onClick={() => onCustomHeaderImageChange(null)} className="text-xs text-destructive hover:underline">Remove</button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <span className="text-xs text-muted-foreground font-medium">Button Link (URL)</span>
-              <input
-                type="text"
-                value={ctaLink}
-                onChange={(e) => onCtaLinkChange(e.target.value)}
-                placeholder="https://your-website.com"
-                disabled={!includeCta}
-                className="w-full px-3 py-2 rounded-lg bg-input border border-border text-sm placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent/50 disabled:opacity-50"
-              />
-            </div>
-            <div className="space-y-2">
-              <span className="text-xs text-muted-foreground font-medium">Button Text</span>
-              <input
-                type="text"
-                value={ctaText}
-                onChange={(e) => onCtaTextChange(e.target.value)}
-                placeholder="Book a Demo"
-                disabled={!includeCta}
-                className="w-full px-3 py-2 rounded-lg bg-input border border-border text-sm placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent/50 disabled:opacity-50"
-              />
-            </div>
+          {/* CTA Button Accordion */}
+          <div className="border border-border rounded-xl overflow-hidden bg-card">
+            <button
+              onClick={() => setOpenSection(openSection === "cta" ? null : "cta")}
+              className="w-full flex items-center justify-between px-4 py-3 bg-secondary/20 hover:bg-secondary/40 transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-foreground">Call to Action Button</span>
+                {includeCta && <Check className="w-4 h-4 text-success" />}
+              </div>
+              <motion.div animate={{ rotate: openSection === "cta" ? 180 : 0 }}>
+                <ChevronDown className="w-4 h-4 text-muted-foreground" />
+              </motion.div>
+            </button>
+            <AnimatePresence>
+              {openSection === "cta" && (
+                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                  <div className="p-4 border-t border-border space-y-4">
+                    <label className="flex items-center gap-2 text-sm cursor-pointer">
+                      <input type="checkbox" checked={includeCta} onChange={(e) => onIncludeCtaChange(e.target.checked)} className="rounded border-border text-primary focus:ring-primary" />
+                      Include AI CTA Button
+                    </label>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <span className="text-xs text-muted-foreground font-medium">Button Link (URL)</span>
+                        <input
+                          type="text"
+                          value={ctaLink}
+                          onChange={(e) => onCtaLinkChange(e.target.value)}
+                          placeholder="https://your-website.com"
+                          disabled={!includeCta}
+                          className="w-full px-3 py-2 rounded-lg bg-input border border-border text-sm placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent/50 disabled:opacity-50"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <span className="text-xs text-muted-foreground font-medium">Button Text</span>
+                        <input
+                          type="text"
+                          value={ctaText}
+                          onChange={(e) => onCtaTextChange(e.target.value)}
+                          placeholder="Book a Demo"
+                          disabled={!includeCta}
+                          className="w-full px-3 py-2 rounded-lg bg-input border border-border text-sm placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent/50 disabled:opacity-50"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
-          <div className="space-y-2">
-            <span className="text-xs text-muted-foreground font-medium">Email Signature</span>
-            <textarea
-              value={signature}
-              onChange={(e) => onSignatureChange(e.target.value)}
-              placeholder="Best regards,&#10;Your Name&#10;Your Title"
-              disabled={!includeSignature}
-              className="w-full h-24 px-3 py-2 rounded-lg bg-input border border-border text-sm placeholder-muted-foreground resize-none focus:outline-none focus:ring-2 focus:ring-accent/50 disabled:opacity-50"
-            />
+
+          {/* Signature Accordion */}
+          <div className="border border-border rounded-xl overflow-hidden bg-card">
+            <button
+              onClick={() => setOpenSection(openSection === "signature" ? null : "signature")}
+              className="w-full flex items-center justify-between px-4 py-3 bg-secondary/20 hover:bg-secondary/40 transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-foreground">Signature</span>
+                {includeSignature && <Check className="w-4 h-4 text-success" />}
+              </div>
+              <motion.div animate={{ rotate: openSection === "signature" ? 180 : 0 }}>
+                <ChevronDown className="w-4 h-4 text-muted-foreground" />
+              </motion.div>
+            </button>
+            <AnimatePresence>
+              {openSection === "signature" && (
+                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                  <div className="p-4 border-t border-border space-y-4">
+                    <label className="flex items-center gap-2 text-sm cursor-pointer">
+                      <input type="checkbox" checked={includeSignature} onChange={(e) => onIncludeSignatureChange(e.target.checked)} className="rounded border-border text-primary focus:ring-primary" />
+                      Include AI Signature
+                    </label>
+                    <div className="space-y-2">
+                      <span className="text-xs text-muted-foreground font-medium">Email Signature (Paste rich text & images here)</span>
+                      <div
+                        ref={signatureRef}
+                        contentEditable={includeSignature}
+                        suppressContentEditableWarning={true}
+                        onBlur={(e) => {
+                          if (onCustomSignatureHtmlChange) onCustomSignatureHtmlChange(e.currentTarget.innerHTML);
+                          else onSignatureChange(e.currentTarget.innerHTML);
+                        }}
+                        onPaste={handleSignaturePaste}
+                        className={`w-full min-h-[6rem] max-h-48 overflow-y-auto px-3 py-2 rounded-lg bg-input border border-border text-sm focus:outline-none focus:ring-2 focus:ring-accent/50 ${!includeSignature ? 'opacity-50 cursor-not-allowed bg-secondary/50' : 'cursor-text'
+                          }`}
+                        style={{ minHeight: '6rem' }}
+                      />
+                      {includeSignature && onCustomSignatureHtmlChange && (
+                        <div className="mt-2 flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">Add Image to Signature (HTML Base64):</span>
+                          <input type="file" accept="image/*" className="text-xs text-muted-foreground file:mr-2 file:py-1 file:px-2 file:rounded-full file:border-0 file:text-[10px] file:font-semibold file:bg-accent/10 file:text-accent hover:file:bg-accent/20" onChange={(e) => handleImageUpload(e, (base64) => {
+                            const imgTag = `<br/><img src="${base64}" alt="Signature" style="max-height: 50px; margin-top: 8px;" />`;
+                            onCustomSignatureHtmlChange((customSignatureHtml || signature) + imgTag);
+                          })} />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* Attachments Accordion */}
+          <div className="border border-border rounded-xl overflow-hidden bg-card">
+            <button
+              onClick={() => setOpenSection(openSection === "attachments" ? null : "attachments")}
+              className="w-full flex items-center justify-between px-4 py-3 bg-secondary/20 hover:bg-secondary/40 transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-foreground">Attachments</span>
+                {attachments && attachments.length > 0 && <Check className="w-4 h-4 text-success" />}
+              </div>
+              <motion.div animate={{ rotate: openSection === "attachments" ? 180 : 0 }}>
+                <ChevronDown className="w-4 h-4 text-muted-foreground" />
+              </motion.div>
+            </button>
+            <AnimatePresence>
+              {openSection === "attachments" && (
+                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                  <div className="p-4 border-t border-border space-y-3">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium text-foreground">Upload Files</label>
+                      <label className="cursor-pointer px-3 py-1.5 rounded-lg bg-secondary text-xs font-semibold text-foreground hover:bg-secondary/80 transition-colors">
+                        <input type="file" multiple className="hidden" onChange={handleAttachmentUpload} />
+                        Add Attachment
+                      </label>
+                    </div>
+                    {attachments && attachments.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {attachments.map((att, idx) => (
+                          <div key={idx} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/5 border border-primary/20 text-xs">
+                            <span className="truncate max-w-[150px] font-medium" title={att.name}>{att.name}</span>
+                            <button onClick={() => removeAttachment(idx)} className="text-muted-foreground hover:text-destructive">
+                              &times;
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
 

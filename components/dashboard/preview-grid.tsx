@@ -16,6 +16,10 @@ interface PreviewGridProps {
   signature?: string;
   ctaText?: string;
   ctaLink?: string;
+  customHeaderImage?: string | null;
+  customSignatureHtml?: string | null;
+  includeHeaderImage?: boolean;
+  includeSignature?: boolean;
 }
 
 export function PreviewGrid({
@@ -26,6 +30,10 @@ export function PreviewGrid({
   signature = "",
   ctaText = "",
   ctaLink = "",
+  customHeaderImage,
+  customSignatureHtml,
+  includeHeaderImage,
+  includeSignature,
 }: PreviewGridProps) {
   return (
     <motion.div
@@ -182,9 +190,12 @@ export function PreviewGrid({
                                      );
                                    }
                                    if (block.type === 'image') {
+                                     // If the user explicitly turned off the header, we shouldn't show it in preview either
+                                     if (includeHeaderImage === false) return null;
+                                     const imgUrl = (includeHeaderImage && customHeaderImage) ? customHeaderImage : (block.content?.url || "https://images.unsplash.com/photo-1579389083078-4e7018379f7e?w=600&q=80");
                                      return (
                                        <div key={idx} style={{ textAlign: block.styles?.alignment || 'center' }} className="my-2">
-                                         <img src={block.content?.url || "https://images.unsplash.com/photo-1579389083078-4e7018379f7e?w=600&q=80"} alt="Email Header" className="max-w-full h-auto rounded-lg" style={{ maxHeight: '200px', objectFit: 'cover', display: 'inline-block' }} />
+                                         <img src={imgUrl} alt="Email Header" className="max-w-full h-auto rounded-lg" style={{ maxHeight: '200px', objectFit: 'cover', display: 'inline-block' }} />
                                        </div>
                                      );
                                    }
@@ -198,6 +209,12 @@ export function PreviewGrid({
                                      );
                                    }
                                    if (block.type === 'signature') {
+                                     if (includeSignature === false) return null;
+                                     if (includeSignature && customSignatureHtml) {
+                                       return (
+                                         <div key={idx} style={{ textAlign: block.styles?.alignment || 'left', fontSize: block.styles?.fontSize || '14px', color: block.styles?.color || '#4b5563' }} className="mt-4 pt-4 border-t border-border" dangerouslySetInnerHTML={{ __html: customSignatureHtml }} />
+                                       );
+                                     }
                                      return (
                                        <div key={idx} style={{ textAlign: block.styles?.alignment || 'left', fontSize: block.styles?.fontSize || '14px', color: block.styles?.color || '#4b5563' }} className="mt-4 pt-4 border-t border-border whitespace-pre-wrap">
                                          {block.content?.text || signature}
