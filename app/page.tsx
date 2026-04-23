@@ -116,6 +116,14 @@ export default function Dashboard() {
     }
   }, [csvData, prompt, model]);
 
+  const handlePreviewEdit = useCallback((index: number, newGenerated: string) => {
+    setPreviews((prev) => {
+      const newPreviews = [...prev];
+      newPreviews[index] = { ...newPreviews[index], generated: newGenerated };
+      return newPreviews;
+    });
+  }, []);
+
   const handleSendAll = useCallback(async () => {
     if (previews.length === 0) return;
     if (!session) {
@@ -135,8 +143,19 @@ export default function Dashboard() {
 
         let parsedPayload = typeof preview.generated === 'string' ? JSON.parse(preview.generated) : preview.generated;
 
-        // Inject custom header and signature if applicable
+        // Filter out blocks if user explicitly disabled them
         if (parsedPayload && parsedPayload.blocks) {
+          if (!includeHeaderImage) {
+            parsedPayload.blocks = parsedPayload.blocks.filter((b: any) => b.type !== 'image');
+          }
+          if (!includeCta) {
+            parsedPayload.blocks = parsedPayload.blocks.filter((b: any) => b.type !== 'cta');
+          }
+          if (!includeSignature) {
+            parsedPayload.blocks = parsedPayload.blocks.filter((b: any) => b.type !== 'signature');
+          }
+
+          // Inject custom header and signature if applicable
           if (customHeaderImage && includeHeaderImage) {
             const headerBlock = parsedPayload.blocks.find((b: any) => b.type === 'image');
             if (headerBlock) {
@@ -264,6 +283,7 @@ export default function Dashboard() {
               previews={previews}
               isProcessing={isProcessing}
               onGenerate={handleProcess}
+              onPreviewEdit={handlePreviewEdit}
               hasData={csvData.length > 0}
               signature={signature}
               ctaText={ctaText}
@@ -271,6 +291,7 @@ export default function Dashboard() {
               customHeaderImage={customHeaderImage}
               customSignatureHtml={customSignatureHtml}
               includeHeaderImage={includeHeaderImage}
+              includeCta={includeCta}
               includeSignature={includeSignature}
             />
           </div>

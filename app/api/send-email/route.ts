@@ -67,11 +67,19 @@ export async function POST(req: Request) {
       htmlContent = `<p>${JSON.stringify(emailData)}</p>`;
     }
 
-    const htmlBody = `
+    const htmlBodyRaw = `
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; line-height: 1.6;">
         ${htmlContent}
       </div>
     `;
+
+    // Convert base64 inline images to cid attachments
+    const inlineImages: any[] = [];
+    const htmlBody = htmlBodyRaw.replace(/src="data:image\/([^;]+);base64,([^"]+)"/g, (match, type, data) => {
+      const cid = `inline_${inlineImages.length}@email`;
+      inlineImages.push({ cid, type: `image/${type}`, base64Data: data });
+      return `src="cid:${cid}"`;
+    });
 
     // Properly format the email as MIME for Gmail API
     const utf8Subject = `=?utf-8?B?${Buffer.from(subject).toString("base64")}?=`;
@@ -89,6 +97,20 @@ export async function POST(req: Request) {
       "",
       htmlBody,
     ];
+
+    if (inlineImages.length > 0) {
+      inlineImages.forEach((img: any) => {
+        messageParts.push(
+          `--${boundary}`,
+          `Content-Type: ${img.type}; name="${img.cid}"`,
+          `Content-ID: <${img.cid}>`,
+          `Content-Disposition: inline; filename="${img.cid}"`,
+          "Content-Transfer-Encoding: base64",
+          "",
+          img.base64Data
+        );
+      });
+    }
 
     if (attachments && Array.isArray(attachments)) {
       attachments.forEach((att: any) => {
