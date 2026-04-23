@@ -1,9 +1,10 @@
 "use client";
 
+
 import { motion, AnimatePresence } from "framer-motion";
 import { Upload, Users, FileSpreadsheet, X, CheckCircle2, Maximize, Layers } from "lucide-react";
 import { useState, useCallback } from "react";
-import * as XLSX from "xlsx";
+import readExcelFile, { readSheet, type Sheet } from "read-excel-file/browser";
 
 interface InputSectionProps {
   onDataChange: (data: string[][]) => void;
@@ -19,25 +20,29 @@ export function InputSection({ onDataChange }: InputSectionProps) {
   const [hasHeaderRow, setHasHeaderRow] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  // Multi-sheet state
-  const [workbook, setWorkbook] = useState<XLSX.WorkBook | null>(null);
+  // Multi-sheet state — store the raw File so we can re-parse any sheet on demand
+  const [excelFile, setExcelFile] = useState<File | null>(null);
   const [sheetNames, setSheetNames] = useState<string[]>([]);
   const [activeSheet, setActiveSheet] = useState<string | null>(null);
 
-  const applySheetData = useCallback((wb: XLSX.WorkBook, sheetName: string) => {
-    const sheet = wb.Sheets[sheetName];
-    const raw: string[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" }) as string[][];
-    // Remove completely blank rows
-    const cleaned = raw.filter(row => row.some(cell => String(cell).trim() !== ""));
-    const hasHeader = cleaned.length > 0 && cleaned[0].some(cell =>
-      String(cell).toLowerCase().includes("email") || String(cell).toLowerCase().includes("name")
-    );
-    const count = hasHeader ? Math.max(0, cleaned.length - 1) : cleaned.length;
-    setHasHeaderRow(hasHeader);
-    setRowCount(count);
-    setParsedData(cleaned);
-    setActiveSheet(sheetName);
-    onDataChange(cleaned);
+  const applySheetData = useCallback(async (file: File, sheetName: string) => {
+    try {
+      const raw = await readSheet(file, sheetName);
+      // Normalise all cells to strings and remove completely blank rows
+      const stringified: string[][] = raw.map(row => row.map(cell => (cell == null ? "" : String(cell))));
+      const cleaned = stringified.filter(row => row.some(cell => cell.trim() !== ""));
+      const hasHeader = cleaned.length > 0 && cleaned[0].some(cell =>
+        cell.toLowerCase().includes("email") || cell.toLowerCase().includes("name")
+      );
+      const count = hasHeader ? Math.max(0, cleaned.length - 1) : cleaned.length;
+      setHasHeaderRow(hasHeader);
+      setRowCount(count);
+      setParsedData(cleaned);
+      setActiveSheet(sheetName);
+      onDataChange(cleaned);
+    } catch (err) {
+      console.error("Failed to read sheet:", err);
+    }
   }, [onDataChange]);
 
   const processFile = useCallback(async (file: File) => {
@@ -59,28 +64,26 @@ export function InputSection({ onDataChange }: InputSectionProps) {
         setParsedData(rows);
         setActiveSheet(null);
         setSheetNames([]);
-        setWorkbook(null);
+        setExcelFile(null);
         onDataChange(rows);
       } catch (err) {
         console.error("Failed to read CSV:", err);
       }
     } else {
-      // Excel file — use native file.arrayBuffer() for most reliable binary read
+      // Excel file — read all sheets to get sheet names, then load the first
       try {
-        const buffer = await file.arrayBuffer();
-        const wb = XLSX.read(buffer, { type: "buffer" });
-        if (!wb.SheetNames || wb.SheetNames.length === 0) {
-          throw new Error("No sheets found in this workbook.");
-        }
-        setWorkbook(wb);
-        setSheetNames(wb.SheetNames);
-        applySheetData(wb, wb.SheetNames[0]);
+        const allSheets: Sheet[] = await readExcelFile(file);
+        const names: string[] = allSheets.map((s) => s.sheet);
+        if (names.length === 0) throw new Error("No sheets found in this workbook.");
+        setExcelFile(file);
+        setSheetNames(names);
+        await applySheetData(file, names[0]);
       } catch (err) {
         console.error("Failed to parse Excel file:", err);
         setFileName(null);
         setParsedData([]);
         setRowCount(0);
-        setWorkbook(null);
+        setExcelFile(null);
         setSheetNames([]);
         alert("Could not read this file. Please make sure it is a valid .xlsx or .xls file.");
       }
@@ -116,7 +119,7 @@ export function InputSection({ onDataChange }: InputSectionProps) {
     setFileName(null);
     setRowCount(0);
     setParsedData([]);
-    setWorkbook(null);
+    setExcelFile(null);
     setSheetNames([]);
     setActiveSheet(null);
     onDataChange([]);
@@ -217,7 +220,7 @@ export function InputSection({ onDataChange }: InputSectionProps) {
                   </motion.div>
 
                   {/* Sheet Selector — only for Excel with multiple sheets */}
-                  {workbook && sheetNames.length > 1 && (
+                  {excelFile && sheetNames.length > 1 && (
                     <motion.div
                       initial={{ opacity: 0, y: -6 }}
                       animate={{ opacity: 1, y: 0 }}
@@ -233,7 +236,7 @@ export function InputSection({ onDataChange }: InputSectionProps) {
                         {sheetNames.map((name) => (
                           <button
                             key={name}
-                            onClick={() => applySheetData(workbook, name)}
+                            onClick={() => applySheetData(excelFile!, name)}
                             className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
                               activeSheet === name
                                 ? "bg-primary text-white border-primary shadow-md shadow-primary/20"
@@ -387,12 +390,12 @@ export function InputSection({ onDataChange }: InputSectionProps) {
                 </div>
                 <div className="flex items-center gap-3">
                   {/* Sheet switcher in fullscreen too */}
-                  {workbook && sheetNames.length > 1 && (
+                  {excelFile && sheetNames.length > 1 && (
                     <div className="flex items-center gap-1.5">
                       {sheetNames.map((name) => (
                         <button
                           key={name}
-                          onClick={() => applySheetData(workbook, name)}
+                          onClick={() => applySheetData(excelFile!, name)}
                           className={`px-3 py-1 rounded-lg text-xs font-medium border transition-all ${
                             activeSheet === name
                               ? "bg-primary text-white border-primary"
