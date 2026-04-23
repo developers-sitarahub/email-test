@@ -32,6 +32,7 @@ export default function Dashboard() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [sentEmails, setSentEmails] = useState(0);
+  const [failedEmails, setFailedEmails] = useState<Set<number>>(new Set());
 
   // Email Design Settings
   const [signature, setSignature] = useState("Best regards,\n" + (session?.user?.name || "The Team"));
@@ -79,6 +80,7 @@ export default function Dashboard() {
     setPreviews([]);
     setHeaders([]);
     setSentEmails(0);
+    setFailedEmails(new Set());
   }, []);
 
   const handleProcess = useCallback(async () => {
@@ -133,11 +135,13 @@ export default function Dashboard() {
 
     setIsSending(true);
     setSentEmails(0);
+    setFailedEmails(new Set());
 
     // Find the email index from headers
     const emailIdx = headers.findIndex(h => h.toLowerCase().includes("email"));
 
-    for (const preview of previews) {
+    for (let i = 0; i < previews.length; i++) {
+      const preview = previews[i];
       try {
         const recipientEmail = emailIdx >= 0 ? preview.original[emailIdx] : preview.original[0];
 
@@ -168,7 +172,7 @@ export default function Dashboard() {
             const sigBlock = parsedPayload.blocks.find((b: any) => b.type === 'signature');
             if (sigBlock) {
               sigBlock.content.text = customSignatureHtml;
-              sigBlock.isHtml = true; // flag to render as HTML
+              sigBlock.isHtml = true;
             }
           }
         }
@@ -181,7 +185,8 @@ export default function Dashboard() {
         setSentEmails((prev) => prev + 1);
         await new Promise((resolve) => setTimeout(resolve, 500));
       } catch (error) {
-        console.error("Failed to send email", error);
+        console.error("Failed to send email to index", i, error);
+        setFailedEmails((prev) => new Set(prev).add(i));
       }
     }
     setIsSending(false);
@@ -293,6 +298,7 @@ export default function Dashboard() {
               includeHeaderImage={includeHeaderImage}
               includeCta={includeCta}
               includeSignature={includeSignature}
+              failedIndices={failedEmails}
             />
           </div>
         </div>

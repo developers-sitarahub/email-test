@@ -23,9 +23,9 @@ export async function POST(request: Request) {
 
     if (cleanCsvData.length > 1 && cleanCsvData[0].some((c: string) => c.toLowerCase().includes("email") || c.toLowerCase().includes("name"))) {
       headers = cleanCsvData[0];
-      dataToProcess = cleanCsvData.slice(1, 6);
+      dataToProcess = cleanCsvData.slice(1);
     } else {
-      dataToProcess = cleanCsvData.slice(0, 5);
+      dataToProcess = cleanCsvData;
     }
 
     if (dataToProcess.length === 0) {

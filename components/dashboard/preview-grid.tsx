@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, ArrowRight, Loader2, Mail, FileText, Eye, Edit2, CheckCircle2 } from "lucide-react";
+import { Sparkles, ArrowRight, Loader2, Mail, FileText, Eye, Edit2, CheckCircle2, AlertTriangle, SendHorizonal } from "lucide-react";
 
 interface EmailPreview {
   original: string[];
@@ -23,6 +23,7 @@ interface PreviewGridProps {
   includeHeaderImage?: boolean;
   includeCta?: boolean;
   includeSignature?: boolean;
+  failedIndices?: Set<number>;
 }
 
 export function PreviewGrid({
@@ -39,6 +40,7 @@ export function PreviewGrid({
   includeHeaderImage,
   includeCta,
   includeSignature,
+  failedIndices = new Set(),
 }: PreviewGridProps) {
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editState, setEditState] = useState<any>(null);
@@ -152,6 +154,12 @@ export function PreviewGrid({
                         <span className="text-xs font-medium text-foreground">
                           Email #{index + 1}
                         </span>
+                        {failedIndices.has(index) && (
+                          <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-destructive/10 border border-destructive/30 text-destructive text-[10px] font-semibold">
+                            <AlertTriangle className="w-2.5 h-2.5" />
+                            Send Failed
+                          </span>
+                        )}
                       </div>
                       <span className="px-2 py-0.5 rounded-full bg-gradient-to-r from-primary/10 to-accent/10 text-primary dark:text-accent text-[10px] font-semibold">
                         AI Generated
