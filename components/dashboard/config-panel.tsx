@@ -111,15 +111,8 @@ export function ConfigPanel({
   };
 
   const signatureRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (signatureRef.current) {
-      const currentHtml = signatureRef.current.innerHTML;
-      const targetHtml = customSignatureHtml !== null ? customSignatureHtml : signature.replace(/\n/g, '<br/>');
-      if (currentHtml !== targetHtml) {
-        signatureRef.current.innerHTML = targetHtml;
-      }
-    }
-  }, [customSignatureHtml, signature]);
+  // We can remove the useEffect because we will use dangerouslySetInnerHTML for initial mount,
+  // and manage updates through onBlur. If we need to force updates, we would use a key.
 
   const handleSignaturePaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
     // Let text/html pass through normally, but try to catch direct image pastes (like from snipping tool)
@@ -288,8 +281,8 @@ export function ConfigPanel({
                         }`}
                     >
                       <div className={`flex items-center justify-center w-10 h-10 rounded-xl ${model === m.id
-                          ? `bg-gradient-to-br ${m.color} shadow-lg`
-                          : "bg-secondary"
+                        ? `bg-gradient-to-br ${m.color} shadow-lg`
+                        : "bg-secondary"
                         }`}>
                         <m.icon className={`w-5 h-5 ${model === m.id ? "text-white" : "text-muted-foreground"}`} />
                       </div>
@@ -444,6 +437,7 @@ export function ConfigPanel({
                         ref={signatureRef}
                         contentEditable={includeSignature}
                         suppressContentEditableWarning={true}
+                        dangerouslySetInnerHTML={{ __html: customSignatureHtml ?? signature.replace(/\n/g, '<br/>') }}
                         onBlur={(e) => {
                           if (onCustomSignatureHtmlChange) onCustomSignatureHtmlChange(e.currentTarget.innerHTML);
                           else onSignatureChange(e.currentTarget.innerHTML);
