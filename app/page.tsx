@@ -89,21 +89,40 @@ export default function Dashboard() {
     setPreviews([]);
 
     try {
-      const response = await axios.post("/api/generate", {
-        prompt,
-        model,
-        csvData,
-        include: { headerImage: includeHeaderImage, cta: includeCta, signature: includeSignature },
-        config: { signature, ctaText, ctaLink }
-      });
+      const hasHeader = csvData[0]?.some(cell => cell.toLowerCase().includes("email") || cell.toLowerCase().includes("name"));
+      const headersRow = hasHeader ? csvData[0] : [];
+      const dataRows = hasHeader ? csvData.slice(1) : csvData;
 
-      const { results, headers: returnedHeaders } = response.data;
-      setHeaders(returnedHeaders || []);
+      setHeaders(headersRow);
 
-      const processedPreviews: EmailPreview[] = results;
-      for (let i = 0; i < processedPreviews.length; i++) {
-        await new Promise((resolve) => setTimeout(resolve, 300));
-        setPreviews((prev) => [...prev, processedPreviews[i]]);
+      let currentCampaignId: string | undefined = undefined;
+      const CHUNK_SIZE = 10; // Gemini is most reliable when generating 5-10 structured objects at a time
+
+      for (let i = 0; i < dataRows.length; i += CHUNK_SIZE) {
+        const chunkData = dataRows.slice(i, i + CHUNK_SIZE);
+        const payloadData = hasHeader ? [headersRow, ...chunkData] : chunkData;
+
+        const res: any = await axios.post("/api/generate", {
+          prompt,
+          model,
+          csvData: payloadData,
+          include: { headerImage: includeHeaderImage, cta: includeCta, signature: includeSignature },
+          config: { signature, ctaText, ctaLink },
+          campaignId: currentCampaignId
+        });
+
+        const returnedCampaignId: string | undefined = res.data?.campaignId;
+        const results = res.data?.results || [];
+
+        if (!currentCampaignId && returnedCampaignId) {
+          currentCampaignId = returnedCampaignId;
+        }
+
+        const processedPreviews: EmailPreview[] = results;
+        for (let j = 0; j < processedPreviews.length; j++) {
+          await new Promise((resolve) => setTimeout(resolve, 300));
+          setPreviews((prev) => [...prev, processedPreviews[j]]);
+        }
       }
     } catch (error: any) {
       console.error("Error generating emails:", error);
@@ -116,7 +135,7 @@ export default function Dashboard() {
     } finally {
       setIsProcessing(false);
     }
-  }, [csvData, prompt, model]);
+  }, [csvData, prompt, model, includeHeaderImage, includeCta, includeSignature, signature, ctaText, ctaLink]);
 
   const handlePreviewEdit = useCallback((index: number, newGenerated: string) => {
     setPreviews((prev) => {

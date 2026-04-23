@@ -8,7 +8,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 export async function POST(request: Request) {
   try {
     const session = await getServerSession();
-    const { prompt, model, csvData, campaignName, include, config } = await request.json();
+    const { prompt, model, csvData, campaignName, include, config, campaignId } = await request.json();
 
     if (!prompt || !csvData || !Array.isArray(csvData) || csvData.length === 0) {
       return NextResponse.json({ error: "Invalid request payload" }, { status: 400 });
@@ -33,7 +33,7 @@ export async function POST(request: Request) {
     }
 
     const useMock = !process.env.GEMINI_API_KEY;
-    const modelId = "gemini-flash-latest"; // Using the alias confirmed to work in this environment
+    const modelId = model || "gemini-1.5-flash";
 
     // ── Create a Campaign row if user is signed in ─────────────────────
     let campaign: { id: string } | null = null;
@@ -45,15 +45,19 @@ export async function POST(request: Request) {
       });
       if (dbUser) {
         userId = dbUser.id;
-        campaign = await prisma.campaign.create({
-          data: {
-            userId: dbUser.id,
-            name: campaignName || `Campaign ${new Date().toLocaleDateString()}`,
-            prompt,
-            model: modelId,
-            status: "generating",
-          },
-        });
+        if (campaignId) {
+          campaign = { id: campaignId };
+        } else {
+          campaign = await prisma.campaign.create({
+            data: {
+              userId: dbUser.id,
+              name: campaignName || `Campaign ${new Date().toLocaleDateString()}`,
+              prompt,
+              model: modelId,
+              status: "generating",
+            },
+          });
+        }
       }
     }
 
@@ -114,7 +118,7 @@ ${recipientsContext}`;
       let textResponse = "";
       let attempts = 0;
       const maxAttempts = 5;
-      const modelsToTry = [modelId, "gemini-1.5-flash-8b", "gemini-1.5-flash-latest"];
+      const modelsToTry = [modelId, "gemini-1.5-flash", "gemini-1.5-pro"];
 
       for (let attempt = 1; attempt <= maxAttempts; attempt++) {
         const currentModelId = modelsToTry[(attempt - 1) % modelsToTry.length];

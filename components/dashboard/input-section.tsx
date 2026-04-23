@@ -25,12 +25,62 @@ export function InputSection({ onDataChange }: InputSectionProps) {
   const [sheetNames, setSheetNames] = useState<string[]>([]);
   const [activeSheet, setActiveSheet] = useState<string | null>(null);
 
+  const normalizeTable = (matrix: string[][]) => {
+    if (!matrix || matrix.length === 0) return matrix;
+
+    // 1. Remove completely blank rows
+    let cleaned = matrix.filter(row => row.some(cell => String(cell).trim() !== ""));
+    if (cleaned.length === 0) return [];
+
+    // 2. Intelligent Transpose Detection
+    // Check if the data is transposed (column-oriented) instead of row-oriented.
+    const headerKeywords = ["email", "name", "phone", "address", "company", "title", "role", "category", "founder", "city", "brand"];
+    
+    const countMatches = (arr: string[]) => arr.filter(cell => {
+      const lower = String(cell).toLowerCase();
+      return headerKeywords.some(keyword => lower.includes(keyword));
+    }).length;
+
+    const row0 = cleaned[0];
+    const col0 = cleaned.map(r => r[0] || "");
+
+    const row0Matches = countMatches(row0);
+    const col0Matches = countMatches(col0);
+
+    // If Col0 looks heavily like headers compared to Row0
+    if (col0Matches > row0Matches && col0Matches >= 2) {
+      // It's transposed! 
+      
+      // Feature request: "skip the line by itself which just give the key not the values"
+      // Remove section headers (like "SCALE & PRESENCE") where only Col 0 has text
+      cleaned = cleaned.filter(row => {
+        const hasValues = row.slice(1).some(cell => String(cell).trim() !== "");
+        return hasValues;
+      });
+
+      // Transpose the matrix
+      const maxCols = Math.max(...cleaned.map(r => r.length));
+      const transposed: string[][] = [];
+      
+      for (let c = 0; c < maxCols; c++) {
+        const newRow: string[] = [];
+        for (let r = 0; r < cleaned.length; r++) {
+          newRow.push(String(cleaned[r][c] || ""));
+        }
+        transposed.push(newRow);
+      }
+      cleaned = transposed;
+    }
+
+    return cleaned;
+  };
+
   const applySheetData = useCallback(async (file: File, sheetName: string) => {
     try {
       const raw = await readSheet(file, sheetName);
-      // Normalise all cells to strings and remove completely blank rows
       const stringified: string[][] = raw.map(row => row.map(cell => (cell == null ? "" : String(cell))));
-      const cleaned = stringified.filter(row => row.some(cell => cell.trim() !== ""));
+      const cleaned = normalizeTable(stringified);
+      
       const hasHeader = cleaned.length > 0 && cleaned[0].some(cell =>
         cell.toLowerCase().includes("email") || cell.toLowerCase().includes("name")
       );
@@ -52,20 +102,23 @@ export function InputSection({ onDataChange }: InputSectionProps) {
     if (isCSV) {
       try {
         const text = await file.text();
-        const rows = text.trim().split("\n").map(row =>
+        const rawRows = text.trim().split("\n").map(row =>
           row.split(",").map(cell => cell.trim().replace(/^"|"$/g, ""))
         );
-        const hasHeader = rows.length > 0 && rows[0].some(cell =>
+        
+        const cleaned = normalizeTable(rawRows);
+        
+        const hasHeader = cleaned.length > 0 && cleaned[0].some(cell =>
           cell.toLowerCase().includes("email") || cell.toLowerCase().includes("name")
         );
-        const count = hasHeader ? Math.max(0, rows.length - 1) : rows.length;
+        const count = hasHeader ? Math.max(0, cleaned.length - 1) : cleaned.length;
         setHasHeaderRow(hasHeader);
         setRowCount(count);
-        setParsedData(rows);
+        setParsedData(cleaned);
         setActiveSheet(null);
         setSheetNames([]);
         setExcelFile(null);
-        onDataChange(rows);
+        onDataChange(cleaned);
       } catch (err) {
         console.error("Failed to read CSV:", err);
       }
