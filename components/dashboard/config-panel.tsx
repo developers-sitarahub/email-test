@@ -315,24 +315,47 @@ export function ConfigPanel({
             Email Design Settings
           </label>
 
-          {/* Header Image Accordion */}
-          <div className="border border-border rounded-xl overflow-hidden bg-card">
+          {/* Tabs Header */}
+          <div className="flex border-b border-border overflow-x-auto hide-scrollbar gap-2">
             <button
               onClick={() => setOpenSection(openSection === "header" ? null : "header")}
-              className="w-full flex items-center justify-between px-4 py-3 bg-secondary/20 hover:bg-secondary/40 transition-colors"
+              className={`whitespace-nowrap px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center justify-center ${openSection === "header" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}
             >
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-foreground">Header Image</span>
-                {includeHeaderImage && <Check className="w-4 h-4 text-success" />}
-              </div>
-              <motion.div animate={{ rotate: openSection === "header" ? 180 : 0 }}>
-                <ChevronDown className="w-4 h-4 text-muted-foreground" />
-              </motion.div>
+              <span className={`transition-all ${includeHeaderImage ? "px-3 py-1 border border-success/50 rounded-full bg-success/10 text-success shadow-sm" : ""}`}>
+                Header Image
+              </span>
             </button>
-            <AnimatePresence>
-              {openSection === "header" && (
-                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                  <div className="p-4 border-t border-border space-y-4">
+            <button
+              onClick={() => setOpenSection(openSection === "cta" ? null : "cta")}
+              className={`whitespace-nowrap px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center justify-center ${openSection === "cta" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+            >
+              <span className={`transition-all ${includeCta ? "px-3 py-1 border border-success/50 rounded-full bg-success/10 text-success shadow-sm" : ""}`}>
+                CTA Button
+              </span>
+            </button>
+            <button
+              onClick={() => setOpenSection(openSection === "signature" ? null : "signature")}
+              className={`whitespace-nowrap px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center justify-center ${openSection === "signature" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+            >
+              <span className={`transition-all ${includeSignature ? "px-3 py-1 border border-success/50 rounded-full bg-success/10 text-success shadow-sm" : ""}`}>
+                Signature
+              </span>
+            </button>
+          </div>
+
+          {/* Tab Content */}
+          <AnimatePresence mode="wait">
+            {openSection && (
+              <motion.div
+                key={openSection}
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2 }}
+                className="bg-card border border-border rounded-xl overflow-hidden mt-2"
+              >
+                {openSection === "header" && (
+                  <div className="p-4 space-y-4">
                     <label className="flex items-center gap-2 text-sm cursor-pointer">
                       <input type="checkbox" checked={includeHeaderImage} onChange={(e) => onIncludeHeaderImageChange(e.target.checked)} className="rounded border-border text-primary focus:ring-primary" />
                       Include AI Header Image
@@ -352,29 +375,10 @@ export function ConfigPanel({
                       </div>
                     )}
                   </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
+                )}
 
-          {/* CTA Button Accordion */}
-          <div className="border border-border rounded-xl overflow-hidden bg-card">
-            <button
-              onClick={() => setOpenSection(openSection === "cta" ? null : "cta")}
-              className="w-full flex items-center justify-between px-4 py-3 bg-secondary/20 hover:bg-secondary/40 transition-colors"
-            >
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-foreground">Call to Action Button</span>
-                {includeCta && <Check className="w-4 h-4 text-success" />}
-              </div>
-              <motion.div animate={{ rotate: openSection === "cta" ? 180 : 0 }}>
-                <ChevronDown className="w-4 h-4 text-muted-foreground" />
-              </motion.div>
-            </button>
-            <AnimatePresence>
-              {openSection === "cta" && (
-                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                  <div className="p-4 border-t border-border space-y-4">
+                {openSection === "cta" && (
+                  <div className="p-4 space-y-4">
                     <label className="flex items-center gap-2 text-sm cursor-pointer">
                       <input type="checkbox" checked={includeCta} onChange={(e) => onIncludeCtaChange(e.target.checked)} className="rounded border-border text-primary focus:ring-primary" />
                       Include AI CTA Button
@@ -404,29 +408,10 @@ export function ConfigPanel({
                       </div>
                     </div>
                   </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
+                )}
 
-          {/* Signature Accordion */}
-          <div className="border border-border rounded-xl overflow-hidden bg-card">
-            <button
-              onClick={() => setOpenSection(openSection === "signature" ? null : "signature")}
-              className="w-full flex items-center justify-between px-4 py-3 bg-secondary/20 hover:bg-secondary/40 transition-colors"
-            >
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-foreground">Signature</span>
-                {includeSignature && <Check className="w-4 h-4 text-success" />}
-              </div>
-              <motion.div animate={{ rotate: openSection === "signature" ? 180 : 0 }}>
-                <ChevronDown className="w-4 h-4 text-muted-foreground" />
-              </motion.div>
-            </button>
-            <AnimatePresence>
-              {openSection === "signature" && (
-                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                  <div className="p-4 border-t border-border space-y-4">
+                {openSection === "signature" && (
+                  <div className="p-4 space-y-4">
                     <label className="flex items-center gap-2 text-sm cursor-pointer">
                       <input type="checkbox" checked={includeSignature} onChange={(e) => onIncludeSignatureChange(e.target.checked)} className="rounded border-border text-primary focus:ring-primary" />
                       Include AI Signature
@@ -443,8 +428,7 @@ export function ConfigPanel({
                           else onSignatureChange(e.currentTarget.innerHTML);
                         }}
                         onPaste={handleSignaturePaste}
-                        className={`w-full min-h-[6rem] max-h-48 overflow-y-auto px-3 py-2 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-accent/50 ${!includeSignature ? 'opacity-50 cursor-not-allowed bg-secondary/50 text-foreground' : 'cursor-text bg-white text-black'
-                          }`}
+                        className={`w-full min-h-[6rem] max-h-48 overflow-y-auto px-3 py-2 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-accent/50 ${!includeSignature ? 'opacity-50 cursor-not-allowed bg-secondary/50 text-foreground' : 'cursor-text bg-white text-black'}`}
                         style={{ minHeight: '6rem' }}
                       />
                       {includeSignature && onCustomSignatureHtmlChange && (
@@ -458,52 +442,33 @@ export function ConfigPanel({
                       )}
                     </div>
                   </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
+                )}
 
-          {/* Attachments Accordion */}
-          <div className="border border-border rounded-xl overflow-hidden bg-card">
-            <button
-              onClick={() => setOpenSection(openSection === "attachments" ? null : "attachments")}
-              className="w-full flex items-center justify-between px-4 py-3 bg-secondary/20 hover:bg-secondary/40 transition-colors"
-            >
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-foreground">Attachments</span>
-                {attachments && attachments.length > 0 && <Check className="w-4 h-4 text-success" />}
-              </div>
-              <motion.div animate={{ rotate: openSection === "attachments" ? 180 : 0 }}>
-                <ChevronDown className="w-4 h-4 text-muted-foreground" />
               </motion.div>
-            </button>
-            <AnimatePresence>
-              {openSection === "attachments" && (
-                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                  <div className="p-4 border-t border-border space-y-3">
-                    <div className="flex items-center justify-between">
-                      <label className="text-sm font-medium text-foreground">Upload Files</label>
-                      <label className="cursor-pointer px-3 py-1.5 rounded-lg bg-secondary text-xs font-semibold text-foreground hover:bg-secondary/80 transition-colors">
-                        <input type="file" multiple className="hidden" onChange={handleAttachmentUpload} />
-                        Add Attachment
-                      </label>
-                    </div>
-                    {attachments && attachments.length > 0 && (
-                      <div className="flex flex-wrap gap-2">
-                        {attachments.map((att, idx) => (
-                          <div key={idx} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/5 border border-primary/20 text-xs">
-                            <span className="truncate max-w-[150px] font-medium" title={att.name}>{att.name}</span>
-                            <button onClick={() => removeAttachment(idx)} className="text-muted-foreground hover:text-destructive">
-                              &times;
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+            )}
+          </AnimatePresence>
+
+          {/* Attachments Section - Always Visible Below */}
+          <div className="pt-4 mt-4 border-t border-border space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium text-foreground">Attachments</label>
+              <label className="cursor-pointer px-3 py-1.5 rounded-lg bg-secondary text-xs font-semibold text-foreground hover:bg-secondary/80 transition-colors">
+                <input type="file" multiple className="hidden" onChange={handleAttachmentUpload} />
+                Add Attachment
+              </label>
+            </div>
+            {attachments && attachments.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {attachments.map((att, idx) => (
+                  <div key={idx} className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-success/10 border border-success/30 text-success text-xs shadow-sm">
+                    <span className="truncate max-w-[150px] font-medium" title={att.name}>{att.name}</span>
+                    <button onClick={() => removeAttachment(idx)} className="text-success hover:text-destructive transition-colors">
+                      &times;
+                    </button>
                   </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
