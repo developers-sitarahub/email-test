@@ -17,6 +17,7 @@ export const authOptions: NextAuthOptions = {
             "email",
             "profile",
             "https://www.googleapis.com/auth/gmail.send",
+            "https://www.googleapis.com/auth/generative-language.retriever",
           ].join(" "),
           access_type: "offline",
           prompt: "consent",
@@ -30,21 +31,24 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async signIn({ user, account }) {
       if (account && user) {
-        // NextAuth only saves account on first sign up. 
-        // We must manually update the DB on subsequent sign-ins to capture fresh tokens.
-        const existingAccount = await prisma.account.findFirst({
-          where: { provider: account.provider, providerAccountId: account.providerAccountId }
-        });
-        
-        if (existingAccount) {
-          await prisma.account.update({
-            where: { id: existingAccount.id },
-            data: {
-              access_token: account.access_token,
-              refresh_token: account.refresh_token ?? existingAccount.refresh_token,
-              expires_at: account.expires_at,
-            }
+        try {
+          const existingAccount = await prisma.account.findFirst({
+            where: { provider: account.provider, providerAccountId: account.providerAccountId }
           });
+          
+          if (existingAccount) {
+            await prisma.account.update({
+              where: { id: existingAccount.id },
+              data: {
+                access_token: account.access_token,
+                refresh_token: account.refresh_token ?? existingAccount.refresh_token,
+                expires_at: account.expires_at,
+                scope: account.scope,
+              }
+            });
+          }
+        } catch (error) {
+          console.error("Error in signIn callback:", error);
         }
       }
       return true;
@@ -55,16 +59,23 @@ export const authOptions: NextAuthOptions = {
           accessToken: account.access_token,
           accessTokenExpires: account.expires_at ? account.expires_at * 1000 : 0,
           refreshToken: account.refresh_token,
-          user,
+          userId: user.id,
+          name: user.name,
+          email: user.email,
+          picture: user.image,
         };
       }
       return token;
     },
     async session({ session, token }: any) {
       if (token) {
-        session.user = token.user;
+        session.user = {
+          id: token.userId,
+          name: token.name,
+          email: token.email,
+          image: token.picture,
+        };
         session.accessToken = token.accessToken;
-        session.error = token.error;
       }
       return session;
     },
@@ -76,5 +87,4 @@ export const authOptions: NextAuthOptions = {
 };
 
 const handler = NextAuth(authOptions);
-
 export { handler as GET, handler as POST };

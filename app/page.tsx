@@ -13,8 +13,10 @@ import { PreviewGrid } from "@/components/dashboard/preview-grid";
 import { ActionBar } from "@/components/dashboard/action-bar";
 
 interface EmailPreview {
-  original: string[];
+  original: any;
   generated: string;
+  status?: string;
+  recipientEmail?: string;
 }
 
 export default function Dashboard() {
@@ -23,6 +25,7 @@ export default function Dashboard() {
 
   // 1. All Hooks Must Be At The Top
   const [csvData, setCsvData] = useState<string[][]>([]);
+  const [hasDataHeader, setHasDataHeader] = useState(true);
   const [prompt, setPrompt] = useState(
     "Write a friendly cold email about our SaaS product that helps teams collaborate better. Keep it concise, professional, and include a clear call-to-action."
   );
@@ -69,14 +72,12 @@ export default function Dashboard() {
 
   const calculateRecipientCount = useCallback((data: string[][]) => {
     if (data.length === 0) return 0;
-    const hasHeader = data[0].some(cell =>
-      cell.toLowerCase().includes("email") || cell.toLowerCase().includes("name")
-    );
-    return hasHeader ? Math.max(0, data.length - 1) : data.length;
-  }, []);
+    return hasDataHeader ? Math.max(0, data.length - 1) : data.length;
+  }, [hasDataHeader]);
 
-  const handleDataChange = useCallback((data: string[][]) => {
+  const handleDataChange = useCallback((data: string[][], isHeader: boolean = true) => {
     setCsvData(data);
+    setHasDataHeader(isHeader);
     setPreviews([]);
     setHeaders([]);
     setSentEmails(0);
@@ -87,23 +88,49 @@ export default function Dashboard() {
     if (csvData.length === 0) return;
     setIsProcessing(true);
     setPreviews([]);
+    setHeaders([]);
 
     try {
-      const response = await axios.post("/api/generate", {
-        prompt,
-        model,
-        csvData,
-        include: { headerImage: includeHeaderImage, cta: includeCta, signature: includeSignature },
-        config: { signature, ctaText, ctaLink }
-      });
+      const hasHeader = hasDataHeader;
+      const dataRows = hasHeader ? csvData.slice(1) : csvData;
+      let currentCampaignId: string | undefined = undefined;
+      const BATCH_SIZE = 8;
 
-      const { results, headers: returnedHeaders } = response.data;
-      setHeaders(returnedHeaders || []);
+      for (let i = 0; i < dataRows.length; i += BATCH_SIZE) {
+        const batchRows = dataRows.slice(i, i + BATCH_SIZE);
+        const batchCsvData = hasHeader ? [csvData[0], ...batchRows] : batchRows;
 
-      const processedPreviews: EmailPreview[] = results;
-      for (let i = 0; i < processedPreviews.length; i++) {
-        await new Promise((resolve) => setTimeout(resolve, 300));
-        setPreviews((prev) => [...prev, processedPreviews[i]]);
+        const response: any = await axios.post("/api/generate", {
+          prompt,
+          model,
+          csvData: batchCsvData,
+          hasHeader,
+          campaignId: currentCampaignId,
+          include: { headerImage: includeHeaderImage, cta: includeCta, signature: includeSignature },
+          config: { signature, ctaText, ctaLink }
+        });
+
+        const { results, headers: returnedHeaders, campaignId: returnedCampaignId } = response.data;
+        if (!currentCampaignId && returnedCampaignId) {
+          currentCampaignId = returnedCampaignId;
+        }
+
+        if (i === 0) {
+          setHeaders(returnedHeaders || []);
+        }
+
+        const processedPreviews: EmailPreview[] = results;
+        setPreviews((prev) => [...prev, ...processedPreviews]);
+
+        setFailedEmails((prev) => {
+          const newFailed = new Set(prev);
+          processedPreviews.forEach((p, idx) => {
+            if (p.status === "failed") {
+              newFailed.add(i + idx);
+            }
+          });
+          return newFailed;
+        });
       }
     } catch (error: any) {
       console.error("Error generating emails:", error);
@@ -116,7 +143,7 @@ export default function Dashboard() {
     } finally {
       setIsProcessing(false);
     }
-  }, [csvData, prompt, model]);
+  }, [csvData, prompt, model, includeHeaderImage, includeCta, includeSignature, signature, ctaText, ctaLink]);
 
   const handlePreviewEdit = useCallback((index: number, newGenerated: string) => {
     setPreviews((prev) => {
@@ -139,11 +166,22 @@ export default function Dashboard() {
 
     // Find the email index from headers
     const emailIdx = headers.findIndex(h => h.toLowerCase().includes("email"));
+    const emailHeaderKey = headers.find(h => h.toLowerCase().includes("email"));
 
     for (let i = 0; i < previews.length; i++) {
       const preview = previews[i];
       try {
-        const recipientEmail = emailIdx >= 0 ? preview.original[emailIdx] : preview.original[0];
+        let recipientEmail = preview.recipientEmail && preview.recipientEmail !== "INVALID_EMAIL" 
+          ? preview.recipientEmail 
+          : "";
+
+        if (!recipientEmail) {
+          if (Array.isArray(preview.original)) {
+            recipientEmail = emailIdx >= 0 ? preview.original[emailIdx] : preview.original[0];
+          } else if (typeof preview.original === 'object' && preview.original !== null) {
+            recipientEmail = emailHeaderKey ? preview.original[emailHeaderKey] : Object.values(preview.original)[0] as string;
+          }
+        }
 
         let parsedPayload = typeof preview.generated === 'string' ? JSON.parse(preview.generated) : preview.generated;
 
@@ -307,6 +345,7 @@ export default function Dashboard() {
       <ActionBar
         totalEmails={calculateRecipientCount(csvData)}
         sentEmails={sentEmails}
+        failedEmails={failedEmails.size}
         isSending={isSending}
         onSendAll={handleSendAll}
         hasGeneratedPreviews={previews.length > 0}

@@ -42,6 +42,15 @@ export async function POST(req: Request) {
       refresh_token: tokens.refreshToken,
     });
 
+    // Robust email validation before sending
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!to || !emailRegex.test(to)) {
+      console.warn(`Skipping invalid email address: "${to}"`);
+      return NextResponse.json({ 
+        error: `The recipient address "${to}" is not a valid email format. Please check your CSV data.` 
+      }, { status: 400 });
+    }
+
     const gmail = google.gmail({ version: "v1", auth: oauth2Client });
 
     // Ensure we have a valid parsed emailData

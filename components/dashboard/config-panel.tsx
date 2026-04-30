@@ -30,25 +30,6 @@ interface ConfigPanelProps {
   onAttachmentsChange?: (val: { name: string, type: string, content: string }[]) => void;
 }
 
-const models = [
-  {
-    id: "gemini-1.5-pro",
-    name: "Gemini 1.5 Pro",
-    description: "Most capable, best for complex tasks",
-    icon: Brain,
-    badge: "Recommended",
-    color: "from-violet-500 to-purple-500"
-  },
-  {
-    id: "gemini-1.5-flash",
-    name: "Gemini 1.5 Flash",
-    description: "Fast responses, great for bulk operations",
-    icon: Zap,
-    badge: null,
-    color: "from-amber-500 to-orange-500"
-  },
-];
-
 export function ConfigPanel({
   prompt,
   onPromptChange,
@@ -77,6 +58,39 @@ export function ConfigPanel({
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [openSection, setOpenSection] = useState<"header" | "cta" | "signature" | "attachments" | null>(null);
+  const [availableModels, setAvailableModels] = useState<any[]>([]);
+  const [isLoadingModels, setIsLoadingModels] = useState(true);
+
+  useEffect(() => {
+    async function fetchModels() {
+      try {
+        const res = await fetch("/api/models");
+        const data = await res.json();
+        if (data.models) {
+          const mapped = data.models.map((m: any) => ({
+            id: m.id,
+            name: m.name,
+            description: m.description || "Gemini generative model",
+            icon: m.id.includes("pro") ? Brain : (m.id.includes("flash") ? Zap : Sparkles),
+            badge: m.id.includes("preview") ? "Preview" : (m.id.includes("3") ? "New" : null),
+            color: m.id.includes("pro") ? "from-violet-500 to-purple-500" : (m.id.includes("flash") ? "from-amber-500 to-orange-500" : "from-blue-500 to-cyan-500")
+          }));
+          setAvailableModels(mapped);
+          
+          // Set default model if current one is not in the list
+          if (!model && mapped.length > 0) {
+            const defaultModel = mapped.find((mo: any) => mo.id.includes("3-flash")) || mapped[0];
+            onModelChange(defaultModel.id);
+          }
+        }
+      } catch (e) {
+        console.error("Error loading models:", e);
+      } finally {
+        setIsLoadingModels(false);
+      }
+    }
+    fetchModels();
+  }, [onModelChange, model]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, callback: (base64: string) => void) => {
     const file = e.target.files?.[0];
@@ -138,7 +152,7 @@ export function ConfigPanel({
     }
   };
 
-  const selectedModel = models.find((m) => m.id === model) || models[0];
+  const selectedModel = availableModels.find((m) => m.id === model) || availableModels[0] || { id: "", name: "Select Model", icon: Brain, color: "from-gray-500 to-gray-600", description: "Loading...", badge: null };
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -270,7 +284,7 @@ export function ConfigPanel({
                   transition={{ duration: 0.15 }}
                   className="absolute z-20 w-full mt-2 rounded-xl border border-border bg-popover shadow-2xl overflow-hidden"
                 >
-                  {models.map((m) => (
+                  {availableModels.map((m) => (
                     <button
                       key={m.id}
                       onClick={() => {
@@ -295,7 +309,7 @@ export function ConfigPanel({
                             </span>
                           )}
                         </div>
-                        <p className="text-xs text-muted-foreground mt-0.5">{m.description}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5 truncate max-w-[200px]">{m.description}</p>
                       </div>
                       {model === m.id && (
                         <Check className="w-5 h-5 text-primary" />

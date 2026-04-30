@@ -1,226 +1,228 @@
 import { NextResponse } from "next/server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import { getServerSession } from "next-auth";
+import { authOptions } from "../auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+import { getFreshAccessToken } from "@/lib/google-auth";
 
 export async function POST(request: Request) {
   try {
-    const session = await getServerSession();
-    const { prompt, model, csvData, campaignName, include, config } = await request.json();
+    const body = await request.json();
+    const { prompt, model, csvData, campaignName, include, config, campaignId, hasHeader } = body;
 
     if (!prompt || !csvData || !Array.isArray(csvData) || csvData.length === 0) {
       return NextResponse.json({ error: "Invalid request payload" }, { status: 400 });
     }
 
-    // Determine headers and clean data rows
+    const session = await getServerSession(authOptions);
+    if (!(session?.user as any)?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const userAccessToken = await getFreshAccessToken((session!.user as any).id);
+
+    // ── Prepare Data ───────────────────────────────────────────────
     let headers: string[] = [];
     let dataToProcess: string[][] = [];
 
-    // Filter out completely blank rows
-    const cleanCsvData = csvData.filter((row: string[]) => row.some(cell => cell && typeof cell === 'string' && cell.trim() !== ""));
+    const cleanCsvData = csvData.filter((row: any[]) =>
+      row && Array.isArray(row) && row.some(cell => cell !== undefined && cell !== null && String(cell).trim() !== "")
+    );
 
-    if (cleanCsvData.length > 1 && cleanCsvData[0].some((c: string) => c.toLowerCase().includes("email") || c.toLowerCase().includes("name"))) {
-      headers = cleanCsvData[0];
-      dataToProcess = cleanCsvData.slice(1);
-    } else {
-      dataToProcess = cleanCsvData;
-    }
+    if (cleanCsvData.length > 0) {
+      const firstRow = cleanCsvData[0];
 
-    if (dataToProcess.length === 0) {
-      return NextResponse.json({ error: "No valid email IDs found" }, { status: 400 });
-    }
-
-    const useMock = !process.env.GEMINI_API_KEY;
-    const modelId = "gemini-flash-latest"; // Using the alias confirmed to work in this environment
-
-    // ── Create a Campaign row if user is signed in ─────────────────────
-    let campaign: { id: string } | null = null;
-    let userId: string | null = null;
-
-    if (session?.user?.email) {
-      const dbUser = await prisma.user.findUnique({
-        where: { email: session.user.email },
-      });
-      if (dbUser) {
-        userId = dbUser.id;
-        campaign = await prisma.campaign.create({
-          data: {
-            userId: dbUser.id,
-            name: campaignName || `Campaign ${new Date().toLocaleDateString()}`,
-            prompt,
-            model: modelId,
-            status: "generating",
-          },
-        });
-      }
-    }
-
-    const recipientsContext = dataToProcess.map((row, idx) => {
-      const rowContext = headers.length > 0 ? headers.map((h, i) => `${h}: ${row[i] || "N/A"}`).join(", ") : row.join(", ");
-      return `Recipient ${idx}: ${rowContext}`;
-    }).join("\n");
-
-    const batchPrompt = `You are an AI email copywriter and layout designer.
-Your task is to generate a **structured, block-based email in JSON format**, based on user input and optional configuration.
-
-Base prompt: "${prompt}"
-
-We have ${dataToProcess.length} email IDs. Write a personalized cold email for each one based on the Base prompt and their Recipient data.
-You MUST output ONLY a valid JSON array of objects. Each object represents an email and MUST STRICTLY follow this exact schema:
-
-{
-  "subject": "string (the catchy subject line)",
-  "blocks": [
-    {
-      "type": "text | image | cta | signature",
-      "content": {
-         "text": "content for text/cta/signature",
-         "url": "image url if type is image",
-         "link": "url if type is cta"
-      },
-      "styles": {
-         "alignment": "left | center",
-         "fontSize": "14px",
-         "color": "#1f2937",
-         "backgroundColor": "#4f46e5"
-      }
-    }
-  ]
-}
-
-Configuration:
-- headerImage block enabled: ${include?.headerImage ? 'true' : 'false'} (Use a relevant unsplash photo URL)
-- cta block enabled: ${include?.cta ? 'true' : 'false'} (Use link: "${config?.ctaLink}", text: "${config?.ctaText}")
-- signature block enabled: ${include?.signature ? 'true' : 'false'} (Use details: "${config?.signature}")
-
-RULES:
-1. Include image block ONLY IF headerImage block enabled is true. Place at the top.
-2. Include cta block ONLY IF cta block enabled is true. Use exactly the text and link provided.
-3. Include signature block ONLY IF signature block enabled is true.
-4. Break text into multiple text blocks for readability.
-5. Return ONLY a valid JSON array of these objects.
-
-Recipients Data:
-${recipientsContext}`;
-
-    let batchGeneratedEmails: string[] = [];
-
-    if (useMock) {
-      console.log("Mocking generation because GEMINI_API_KEY is missing.");
-      batchGeneratedEmails = dataToProcess.map((row) => `(Mock) Hi ${row[0] || "there"},\n\n${prompt}`);
-    } else {
-      let textResponse = "";
-      let attempts = 0;
-      const maxAttempts = 5;
-      const modelsToTry = [modelId, "gemini-1.5-flash-8b", "gemini-1.5-flash-latest"];
-
-      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-        const currentModelId = modelsToTry[(attempt - 1) % modelsToTry.length];
-        const currentModel = genAI.getGenerativeModel({ 
-          model: currentModelId,
-          generationConfig: { responseMimeType: "application/json" }
-        });
-
-        try {
-          console.log(`AI Generation attempt ${attempt} using ${currentModelId}...`);
-          const result = await currentModel.generateContent(batchPrompt);
-          textResponse = result.response.text().trim();
-          if (textResponse) break; 
-        } catch (e: any) {
-          console.warn(`Attempt ${attempt} (${currentModelId}) failed:`, e.message);
-          if (attempt === maxAttempts) throw e;
-          
-          // Exponential backoff: 3s, 6s, 9s, 12s
-          const delay = attempt * 3000;
-          console.log(`Waiting ${delay}ms before next attempt...`);
-          await new Promise(resolve => setTimeout(resolve, delay));
-        }
-      }
-
-      // Robust JSON Extraction: Find the first [ and last ]
-      const jsonMatch = textResponse.match(/\[[\s\S]*\]/);
-      const cleanedJson = jsonMatch ? jsonMatch[0] : textResponse;
-      
-      let parsedArray: any;
-      try {
-        parsedArray = JSON.parse(cleanedJson);
-      } catch (e) {
-        console.error("JSON parse failed. Original response snippet:", textResponse.substring(0, 100));
-        throw new Error("AI returned malformed JSON content.");
-      }
-
-      // If AI wrapped the array in an object (e.g. { emails: [...] })
-      if (!Array.isArray(parsedArray) && typeof parsedArray === "object") {
-         const possibleArray = Object.values(parsedArray).find(val => Array.isArray(val));
-         if (possibleArray) parsedArray = possibleArray as any[];
-      }
-
-      if (Array.isArray(parsedArray)) {
-        batchGeneratedEmails = parsedArray.map(obj => typeof obj === 'string' ? obj : JSON.stringify(obj));
-
-        // Fallback: If AI skipped empty recipients or generated too many, pad or slice it.
-        if (batchGeneratedEmails.length < dataToProcess.length) {
-           const shortfall = dataToProcess.length - batchGeneratedEmails.length;
-           for (let i = 0; i < shortfall; i++) {
-             const fallbackObj = { subject: "Reaching out", blocks: [{ type: "text", content: { text: "Hi there, reaching out." } }] };
-             batchGeneratedEmails.push(JSON.stringify(fallbackObj));
-           }
-        } else if (batchGeneratedEmails.length > dataToProcess.length) {
-           batchGeneratedEmails = batchGeneratedEmails.slice(0, dataToProcess.length);
-        }
-
-        if (userId) {
-          const estimatedTokens = Math.round((batchPrompt.length + textResponse.length) / 4);
-          await prisma.geminiUsage.create({
-            data: {
-              userId,
-              campaignId: campaign?.id,
-              tokensUsed: estimatedTokens,
-              model: modelId,
-            },
-          });
-        }
+      if (hasHeader) {
+        headers = firstRow.map(h => String(h).trim());
+        dataToProcess = cleanCsvData.slice(1);
       } else {
-        throw new Error("AI did not return a recognizable array format.");
+        dataToProcess = cleanCsvData;
+        headers = dataToProcess[0].map((_, i) => `Column ${i + 1}`);
       }
     }
 
-    // ── Process results ────────────────────────────────────────────────
-    const results: { original: string[]; generated: string }[] = [];
+    if (dataToProcess.length === 0) return NextResponse.json({ error: "No valid recipient data found" }, { status: 400 });
 
-    for (let i = 0; i < dataToProcess.length; i++) {
-        const row = dataToProcess[i];
-        const generated = batchGeneratedEmails[i];
-
-        // Persist each EmailDraft
-        if (campaign) {
-          const emailIdx = headers.findIndex((h) => h.toLowerCase().includes("email"));
-          await prisma.emailDraft.create({
-            data: {
-              campaignId: campaign.id,
-              recipientEmail: emailIdx >= 0 ? row[emailIdx] : row[0] || "unknown",
-              recipientData: JSON.stringify(Object.fromEntries(headers.map((h, idx) => [h, row[idx] ?? ""]))),
-              generatedText: generated,
-            },
-          });
-        }
-
-        results.push({ original: row, generated });
+    let campaign;
+    if (campaignId) {
+      campaign = await prisma.campaign.findUnique({ where: { id: campaignId } });
     }
 
-    // Mark campaign status
-    if (campaign) {
-      await prisma.campaign.update({
-        where: { id: campaign.id },
-        data: { status: "completed" },
+    if (!campaign) {
+      campaign = await prisma.campaign.create({
+        data: {
+          userId: (session!.user as any).id,
+          name: campaignName || `Campaign ${new Date().toLocaleDateString()}`,
+          prompt,
+          model: model || "models/gemini-3-flash-preview",
+          status: "generating",
+        },
       });
     }
 
-    return NextResponse.json({ results, headers, campaignId: campaign?.id ?? null });
+    // ── Robust Email Column Detection ─────────────────────────────
+    let emailColIdx = headers.findIndex(h => /email|mail|address/i.test(h));
+
+    // Pattern for a real email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (emailColIdx === -1 || !dataToProcess.some(row => emailRegex.test(String(row[emailColIdx])))) {
+      // Deep scan all columns for the first one that has a high percentage of emails
+      for (let j = 0; j < headers.length; j++) {
+        let emailCount = 0;
+        for (let r = 0; r < Math.min(dataToProcess.length, 10); r++) {
+          if (emailRegex.test(String(dataToProcess[r][j]).trim())) emailCount++;
+        }
+        if (emailCount >= 1) { // If at least one row in the sample matches
+          emailColIdx = j;
+          break;
+        }
+      }
+    }
+
+    // ── Batch Generation Logic ─────────────────────────────────────
+    const BATCH_SIZE = 8; // Slightly smaller batches for higher quality
+    const totalRecipients = dataToProcess.length;
+    let allGeneratedEmails: any[] = [];
+    let totalTokensEstimate = 0;
+
+    for (let i = 0; i < totalRecipients; i += BATCH_SIZE) {
+      const batch = dataToProcess.slice(i, i + BATCH_SIZE);
+      const batchContext = batch.map((row, idx) => {
+        // Include ALL available columns in the context
+        const map = Object.fromEntries(headers.map((h, j) => [h, row[j] || ""]));
+        return `Recipient ${i + idx + 1}:\n${JSON.stringify(map, null, 2)}`;
+      }).join("\n\n---\n\n");
+
+      const batchPrompt = `You are a world-class AI email strategist specializing in hyper-personalization.
+Your goal is to generate unique, high-converting emails based on a user strategy and raw recipient data.
+
+User Strategy: "${prompt}"
+
+### GUIDELINES:
+1. **SELF-DRIVEN DISCOVERY**: Analyze the keys and values in the JSON for each recipient. Identify the most interesting data points (e.g., Setup Cost, Revenue, City, USP) and weave them into the narrative automatically.
+2. **NO PLACEHOLDERS**: Do not use generic phrases like "your work" if specific data like "franchise expansion in Delhi" is available. Use the actual data from the fields.
+3. **TONE**: Maintain the spirit of the User Strategy while sounding like a real person who has researched the recipient's specific data.
+4. **STRUCTURE**: Respect these UI settings:
+   - Header Image: ${include?.headerImage ? 'Include a relevant image block' : 'Do NOT include image blocks'}
+   - CTA: ${include?.cta ? `Include a CTA button (Text: "${config?.ctaText}", Link: "${config?.ctaLink}")` : 'Do NOT include CTA blocks'}
+   - Signature: ${include?.signature ? `Include a signature block (Details: "${config?.signature}")` : 'Do NOT include signature blocks'}
+
+Recipients (${batch.length}):
+${batchContext}
+
+### OUTPUT FORMAT:
+You MUST output ONLY a valid JSON array with ${batch.length} objects. No markdown. No intro/outro.
+Each object:
+{
+  "subject": "Compelling, data-driven subject line",
+  "blocks": [
+    { "type": "text | image | cta | signature", "content": { "text": "...", "url": "...", "link": "..." } }
+  ]
+}`;
+
+      // ── Updated Model List (NO 1.5) ─────────────────────────────
+      const selectedModel = model?.startsWith("models/") ? model : `models/${model || "gemini-3-flash-preview"}`;
+      const modelsToTry = [
+        selectedModel,
+        "models/gemini-3.1-flash-lite-preview",
+        "models/gemini-2.0-flash",
+        "models/gemini-flash-latest"
+      ].filter(m => !m.includes("1.5")); // Hard restriction on 1.5
+
+      let batchResult: any[] = [];
+
+      for (const mId of modelsToTry) {
+        console.log(`[Campaign ${campaign.id}] Batch ${Math.floor(i / BATCH_SIZE) + 1} using ${mId}...`);
+        try {
+          const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/${mId}:generateContent`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${userAccessToken}`
+            },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: batchPrompt }] }],
+              generationConfig: { responseMimeType: "application/json" }
+            })
+          });
+
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            console.warn(`Model ${mId} failed: ${res.status}`, err);
+            continue;
+          }
+
+          const json = await res.json();
+          const text = json.candidates?.[0]?.content?.parts?.[0]?.text || "";
+
+          const match = text.match(/\[[\s\S]*\]/);
+          batchResult = JSON.parse(match ? match[0] : text);
+
+          if (Array.isArray(batchResult)) {
+            totalTokensEstimate += Math.round((batchPrompt.length + text.length) / 4);
+            break;
+          }
+        } catch (e) {
+          console.warn(`Batch logic error for ${mId}:`, e);
+        }
+      }
+
+      // Fill with personalized placeholders if AI fails
+      if (!Array.isArray(batchResult) || batchResult.length === 0) {
+        batchResult = batch.map((row) => {
+          const name = String(row[0] || "there");
+          return {
+            subject: `Regarding your work at ${row[2] || "your company"}`,
+            blocks: [{ type: "text", content: { text: `Hello ${name}! I wanted to reach out regarding the data in our list. Let's connect.` } }]
+          };
+        });
+      }
+
+      allGeneratedEmails.push(...batchResult.slice(0, batch.length));
+    }
+
+    // ── Save Results (Filtered & Validated) ────────────────────────
+    const draftData: any[] = [];
+    dataToProcess.forEach((row, i) => {
+      // Find ALL valid emails in this specific row
+      const allEmailsInRow = row.map(c => String(c).trim()).filter(c => emailRegex.test(c));
+      const targetEmails = allEmailsInRow.length > 0 ? Array.from(new Set(allEmailsInRow)) : ["INVALID_EMAIL"];
+
+      targetEmails.forEach(rawEmail => {
+        const isValidEmail = rawEmail !== "INVALID_EMAIL";
+        draftData.push({
+          campaignId: campaign.id,
+          recipientEmail: rawEmail,
+          recipientData: JSON.stringify(Object.fromEntries(headers.map((h, j) => [h, row[j] || ""]))),
+          generatedText: JSON.stringify(allGeneratedEmails[i] || { subject: "Hello", blocks: [] }),
+          status: isValidEmail ? "ready" : "failed"
+        });
+      });
+    });
+
+    await prisma.emailDraft.createMany({ data: draftData });
+    await prisma.campaign.update({ where: { id: campaign.id }, data: { status: "completed" } });
+
+    await prisma.geminiUsage.create({
+      data: {
+        userId: (session!.user as any).id,
+        campaignId: campaign.id,
+        tokensUsed: totalTokensEstimate,
+        model: "gemini-3-flash-preview",
+      }
+    });
+
+    return NextResponse.json({
+      results: draftData.map((d, i) => ({
+        original: JSON.parse(d.recipientData),
+        generated: d.generatedText,
+        status: d.status,
+        recipientEmail: d.recipientEmail
+      })),
+      headers,
+      campaignId: campaign.id
+    });
+
   } catch (error: any) {
-    console.error("API error unhandled exception:", error);
-    return NextResponse.json({ error: error.message || "Unknown fatal error" }, { status: 500 });
+    console.error("Fatal API Error:", error);
+    return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 });
   }
 }

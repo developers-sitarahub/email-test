@@ -1,11 +1,12 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Send, Loader2, Users, CheckCircle2, ArrowRight } from "lucide-react";
+import { Send, Loader2, Users, CheckCircle2, ArrowRight, AlertTriangle } from "lucide-react";
 
 interface ActionBarProps {
   totalEmails: number;
   sentEmails: number;
+  failedEmails: number;
   isSending: boolean;
   onSendAll: () => void;
   hasGeneratedPreviews: boolean;
@@ -14,12 +15,14 @@ interface ActionBarProps {
 export function ActionBar({
   totalEmails,
   sentEmails,
+  failedEmails,
   isSending,
   onSendAll,
   hasGeneratedPreviews,
 }: ActionBarProps) {
-  const progress = totalEmails > 0 ? (sentEmails / totalEmails) * 100 : 0;
-  const isComplete = sentEmails === totalEmails && totalEmails > 0;
+  const processedEmails = sentEmails + failedEmails;
+  const progress = totalEmails > 0 ? (processedEmails / totalEmails) * 100 : 0;
+  const isComplete = processedEmails === totalEmails && totalEmails > 0;
 
   return (
     <motion.div
@@ -51,34 +54,54 @@ export function ActionBar({
               </div>
             </div>
 
-            {/* Sent Count - Show when sending or complete */}
-            {(isSending || isComplete) && (
+            {/* Sent and Failed Count */}
+            {(isSending || isComplete || sentEmails > 0 || failedEmails > 0) && (
               <motion.div
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
-                className="flex items-center gap-3"
+                className="flex items-center gap-6"
               >
-                <div className={`flex items-center justify-center w-10 h-10 rounded-xl ${
-                  isComplete 
-                    ? "bg-gradient-to-br from-success/20 to-success/10" 
-                    : "bg-secondary"
-                }`}>
-                  {isComplete ? (
-                    <CheckCircle2 className="w-5 h-5 text-success" />
-                  ) : (
-                    <Send className="w-5 h-5 text-muted-foreground" />
-                  )}
-                </div>
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    {isComplete ? "Completed" : "Sent"}
-                  </p>
-                  <p className={`text-xl font-bold tabular-nums ${
-                    isComplete ? "text-success" : "text-foreground"
+                {/* Sent Stats */}
+                <div className="flex items-center gap-3">
+                  <div className={`flex items-center justify-center w-10 h-10 rounded-xl ${
+                    isComplete && failedEmails === 0
+                      ? "bg-gradient-to-br from-success/20 to-success/10" 
+                      : "bg-secondary"
                   }`}>
-                    {sentEmails}
-                  </p>
+                    {isComplete && failedEmails === 0 ? (
+                      <CheckCircle2 className="w-5 h-5 text-success" />
+                    ) : (
+                      <Send className="w-5 h-5 text-muted-foreground" />
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      {isComplete && failedEmails === 0 ? "Completed" : "Sent"}
+                    </p>
+                    <p className={`text-xl font-bold tabular-nums ${
+                      isComplete && failedEmails === 0 ? "text-success" : "text-foreground"
+                    }`}>
+                      {sentEmails}
+                    </p>
+                  </div>
                 </div>
+
+                {/* Failed Stats */}
+                {failedEmails > 0 && (
+                  <div className="flex items-center gap-3 border-l border-border pl-6">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-destructive/10">
+                      <AlertTriangle className="w-5 h-5 text-destructive" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-destructive/80">
+                        Failed
+                      </p>
+                      <p className="text-xl font-bold tabular-nums text-destructive">
+                        {failedEmails}
+                      </p>
+                    </div>
+                  </div>
+                )}
               </motion.div>
             )}
           </div>
@@ -109,15 +132,17 @@ export function ActionBar({
             </motion.div>
           )}
 
-          {/* Success Message */}
+          {/* Success/Warning Message */}
           {isComplete && (
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="flex-1 flex items-center justify-center gap-2 text-success"
+              className={`flex-1 flex items-center justify-center gap-2 ${failedEmails > 0 ? "text-destructive" : "text-success"}`}
             >
-              <CheckCircle2 className="w-5 h-5" />
-              <span className="text-sm font-semibold">All emails sent successfully!</span>
+              {failedEmails > 0 ? <AlertTriangle className="w-5 h-5" /> : <CheckCircle2 className="w-5 h-5" />}
+              <span className="text-sm font-semibold">
+                {failedEmails > 0 ? `Finished with ${failedEmails} failed emails.` : "All emails sent successfully!"}
+              </span>
             </motion.div>
           )}
 
@@ -129,7 +154,7 @@ export function ActionBar({
             disabled={!hasGeneratedPreviews || isSending || totalEmails === 0 || isComplete}
             className={`flex items-center gap-3 px-8 py-4 rounded-xl font-semibold transition-all ${
               isComplete
-                ? "bg-success/10 text-success cursor-default"
+                ? failedEmails > 0 ? "bg-secondary text-foreground cursor-default" : "bg-success/10 text-success cursor-default"
                 : "bg-gradient-to-r from-primary to-accent text-white shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none"
             }`}
           >
@@ -140,7 +165,7 @@ export function ActionBar({
               </>
             ) : isComplete ? (
               <>
-                <CheckCircle2 className="w-5 h-5" />
+                {failedEmails > 0 ? <AlertTriangle className="w-5 h-5" /> : <CheckCircle2 className="w-5 h-5" />}
                 <span>Complete</span>
               </>
             ) : (
