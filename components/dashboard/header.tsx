@@ -34,7 +34,7 @@ export function Header() {
               whileTap={{ scale: 0.95 }}
             >
               <Image
-                src="/logo.png"
+                src="/logo.jpg"
                 alt="Logo"
                 width={64}
                 height={64}

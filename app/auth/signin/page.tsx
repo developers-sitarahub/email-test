@@ -36,7 +36,7 @@ export default function SignInPage() {
 
                 <div className="relative z-10">
                     <div className="flex items-center gap-4 mb-16">
-                        <Image src="/logo.png" alt="Logo" width={80} height={80} className="w-20 h-20 object-contain rounded-xl" priority />
+                        <Image src="/logo.jpg" alt="Logo" width={80} height={80} className="w-20 h-20 object-contain rounded-xl" priority />
                         <span className="text-3xl font-bold text-white tracking-tight">Mail by GPSERP</span>
                     </div>
 
@@ -82,7 +82,7 @@ export default function SignInPage() {
                 >
                     {/* Mobile logo */}
                     <div className="flex items-center gap-4 mb-10 lg:hidden">
-                        <Image src="/logo.png" alt="Logo" width={64} height={64} className="w-16 h-16 object-contain rounded-xl" priority />
+                        <Image src="/logo.jpg" alt="Logo" width={64} height={64} className="w-16 h-16 object-contain rounded-xl" priority />
                         <span className="text-2xl font-bold text-foreground">Mail by GPSERP</span>
                     </div>
 
