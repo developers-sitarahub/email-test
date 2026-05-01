@@ -1,8 +1,9 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Mail, Zap, Circle, LogOut } from "lucide-react";
+import { Zap, Circle, LogOut } from "lucide-react";
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useSession, signIn, signOut } from "next-auth/react";
 
@@ -31,13 +32,14 @@ export function Header() {
             <motion.div
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className="relative flex items-center justify-center w-11 h-11 rounded-xl bg-gradient-to-br from-primary to-accent shadow-lg shadow-primary/20 dark:shadow-primary/10"
             >
-              <Mail className="w-5 h-5 text-white" />
-              <motion.div
-                animate={{ scale: [1, 1.3, 1], opacity: [0.3, 0.6, 0.3] }}
-                transition={{ duration: 2, repeat: Infinity }}
-                className="absolute inset-0 rounded-xl bg-gradient-to-br from-primary to-accent blur-md"
+              <Image
+                src="/logo.png"
+                alt="Logo"
+                width={64}
+                height={64}
+                className="w-16 h-16 object-contain"
+                priority
               />
             </motion.div>
             <div>

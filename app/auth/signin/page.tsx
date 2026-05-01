@@ -4,7 +4,8 @@ import { signIn, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { motion } from "framer-motion";
-import { Mail, Sparkles, Zap, Shield, BarChart2 } from "lucide-react";
+import Image from "next/image";
+import { Sparkles, Zap, Shield, BarChart2 } from "lucide-react";
 
 const features = [
     { icon: Sparkles, title: "AI-Personalized Emails", desc: "Gemini writes a unique email for every recipient." },
@@ -34,11 +35,9 @@ export default function SignInPage() {
                 <div className="absolute bottom-20 right-10 w-96 h-96 bg-violet-600/10 rounded-full blur-3xl" />
 
                 <div className="relative z-10">
-                    <div className="flex items-center gap-3 mb-16">
-                        <div className="p-2.5 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 shadow-lg shadow-indigo-500/30">
-                            <Mail className="w-6 h-6 text-white" />
-                        </div>
-                        <span className="text-2xl font-bold text-white tracking-tight">Mail by GPSERP</span>
+                    <div className="flex items-center gap-4 mb-16">
+                        <Image src="/logo.png" alt="Logo" width={80} height={80} className="w-20 h-20 object-contain rounded-xl" priority />
+                        <span className="text-3xl font-bold text-white tracking-tight">Mail by GPSERP</span>
                     </div>
 
                     <h1 className="text-4xl font-bold text-white leading-tight mb-4">
@@ -82,11 +81,9 @@ export default function SignInPage() {
                     className="w-full max-w-md"
                 >
                     {/* Mobile logo */}
-                    <div className="flex items-center gap-3 mb-10 lg:hidden">
-                        <div className="p-2 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600">
-                            <Mail className="w-5 h-5 text-white" />
-                        </div>
-                        <span className="text-xl font-bold text-foreground">Mail by GPSERP</span>
+                    <div className="flex items-center gap-4 mb-10 lg:hidden">
+                        <Image src="/logo.png" alt="Logo" width={64} height={64} className="w-16 h-16 object-contain rounded-xl" priority />
+                        <span className="text-2xl font-bold text-foreground">Mail by GPSERP</span>
                     </div>
 
                     <h2 className="text-3xl font-bold text-foreground mb-2">Welcome back</h2>
