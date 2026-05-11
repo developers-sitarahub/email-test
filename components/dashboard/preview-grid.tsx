@@ -68,7 +68,8 @@ export function PreviewGrid({
       className="rounded-2xl border border-border bg-card overflow-hidden h-full shadow-xl shadow-primary/5 dark:shadow-none"
     >
       {/* Section Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-gradient-to-r from-primary/5 via-accent/5 to-transparent dark:from-primary/10 dark:via-accent/10">
+      {/* Section Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between px-4 sm:px-6 py-4 border-b border-border bg-gradient-to-r from-primary/5 via-accent/5 to-transparent dark:from-primary/10 dark:via-accent/10 gap-4">
         <div className="flex items-center gap-3">
           <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-accent shadow-lg shadow-primary/20">
             <Eye className="w-4 h-4 text-white" />
@@ -83,7 +84,7 @@ export function PreviewGrid({
           whileTap={{ scale: 0.98 }}
           onClick={onGenerate}
           disabled={!hasData || isProcessing}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary to-accent text-white text-sm font-semibold shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none transition-all"
+          className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary to-accent text-white text-sm font-semibold shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none transition-all"
         >
           {isProcessing ? (
             <>
@@ -99,7 +100,7 @@ export function PreviewGrid({
         </motion.button>
       </div>
 
-      <div className="p-6 max-h-[600px] overflow-y-auto">
+      <div className="p-4 sm:p-6 sm:max-h-[600px] sm:overflow-y-auto">
         {previews.length === 0 ? (
           <motion.div
             initial={{ opacity: 0 }}

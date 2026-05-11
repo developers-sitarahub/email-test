@@ -1,10 +1,12 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Mail, Zap, Circle, LogOut } from "lucide-react";
+import { Zap, Circle, LogOut, History } from "lucide-react";
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useSession, signIn, signOut } from "next-auth/react";
+import Link from "next/link";
 
 export function Header() {
   const { data: session } = useSession();
@@ -28,22 +30,27 @@ export function Header() {
         <div className="flex items-center justify-between">
           {/* Logo */}
           <div className="flex items-center gap-4">
-            <motion.div
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="relative flex items-center justify-center w-11 h-11 rounded-xl bg-gradient-to-br from-primary to-accent shadow-lg shadow-primary/20 dark:shadow-primary/10"
-            >
-              <Mail className="w-5 h-5 text-white" />
+            <Link href="/">
               <motion.div
-                animate={{ scale: [1, 1.3, 1], opacity: [0.3, 0.6, 0.3] }}
-                transition={{ duration: 2, repeat: Infinity }}
-                className="absolute inset-0 rounded-xl bg-gradient-to-br from-primary to-accent blur-md"
-              />
-            </motion.div>
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                <Image
+                  src="/logo.jpg"
+                  alt="Logo"
+                  width={64}
+                  height={64}
+                  className="w-16 h-16 object-contain rounded-xl shadow-sm border border-border/50 bg-white"
+                  priority
+                />
+              </motion.div>
+            </Link>
             <div>
-              <h1 className="text-lg font-bold text-foreground tracking-tight bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-                Mail by GPSERP
-              </h1>
+              <Link href="/">
+                <h1 className="text-lg font-bold text-foreground tracking-tight bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent hover:opacity-80 transition-opacity">
+                  Mail by GPSERP
+                </h1>
+              </Link>
               <p className="text-xs text-muted-foreground">
                 AI-powered email automation
               </p>
@@ -77,6 +84,16 @@ export function Header() {
               <span>{isOnline ? "All systems operational" : "Connection issue"}</span>
             </motion.div>
 
+            {session && (
+              <Link 
+                href="/history" 
+                className="ml-2 px-3 py-2 rounded-xl text-sm font-semibold hover:bg-secondary transition-colors text-foreground flex items-center gap-2"
+              >
+                <History className="w-4 h-4" /> 
+                <span className="hidden sm:inline">History</span>
+              </Link>
+            )}
+
             {/* Theme Toggle */}
             <ThemeToggle />
 
@@ -97,6 +114,7 @@ export function Header() {
                       whileHover={{ scale: 1.1 }}
                       src={session.user?.image || "https://api.dicebear.com/7.x/avataaars/svg?seed=" + session.user?.email}
                       alt="avatar"
+                      referrerPolicy="no-referrer"
                       className="w-9 h-9 rounded-xl border border-border shadow-sm group-hover:border-primary/50 transition-colors"
                     />
                     <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-success rounded-full border-2 border-background" />

@@ -178,7 +178,7 @@ export function ConfigPanel({
       className="rounded-2xl border border-border bg-card overflow-hidden shadow-xl shadow-accent/5 dark:shadow-none"
     >
       {/* Section Header */}
-      <div className="px-6 py-4 border-b border-border bg-gradient-to-r from-accent/5 via-primary/5 to-transparent dark:from-accent/10 dark:via-primary/10 flex items-center justify-between">
+      <div className="px-4 sm:px-6 py-4 border-b border-border bg-gradient-to-r from-accent/5 via-primary/5 to-transparent dark:from-accent/10 dark:via-primary/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-accent to-primary shadow-lg shadow-accent/20">
             <Settings2 className="w-4 h-4 text-white" />
@@ -190,7 +190,7 @@ export function ConfigPanel({
         </div>
 
         {session && (
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-success/10 border border-success/20">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-success/10 border border-success/20 w-fit">
             <div className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />
             <span className="text-[10px] font-bold text-success uppercase tracking-wider">
               Sender: {session.user?.email}
@@ -199,7 +199,7 @@ export function ConfigPanel({
         )}
       </div>
 
-      <div className="p-6 space-y-6">
+      <div className="p-4 sm:p-6 space-y-6">
         {/* Master Prompt */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">

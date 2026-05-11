@@ -5,7 +5,6 @@ import { motion } from "framer-motion";
 import axios from "axios";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { Header } from "@/components/dashboard/header";
 import { InputSection } from "@/components/dashboard/input-section";
 import { ConfigPanel } from "@/components/dashboard/config-panel";
 import { ChatInterface } from "@/components/dashboard/chat-interface";
@@ -254,8 +253,7 @@ export default function Dashboard() {
   if (status === "unauthenticated") return null;
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
+    <div className="flex flex-col flex-1 min-h-screen bg-background">
 
       <main className="max-w-7xl mx-auto px-6 py-8 pb-36">
         <div className="mb-10 flex flex-col md:flex-row md:items-end md:justify-between gap-6">
@@ -280,8 +278,8 @@ export default function Dashboard() {
           </motion.div>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-5">
-          <div className="space-y-6 lg:col-span-2">
+        <div className="grid gap-6 xl:grid-cols-5 lg:grid-cols-2 grid-cols-1">
+          <div className="space-y-6 xl:col-span-2">
             <InputSection onDataChange={handleDataChange} />
             <ConfigPanel
               prompt={prompt}
@@ -314,14 +312,14 @@ export default function Dashboard() {
               attachments={attachments}
               onAttachmentsChange={setAttachments}
             />
-            <ChatInterface
-              onApplyPrompt={setPrompt}
-              csvHeaders={csvData.length > 0 ? csvData[0] : []}
+            <ChatInterface 
+              onApplyPrompt={setPrompt} 
+              csvHeaders={csvData.length > 0 ? csvData[0] : []} 
               session={session}
             />
           </div>
 
-          <div className="lg:sticky lg:top-24 lg:self-start lg:col-span-3">
+          <div className="xl:sticky xl:top-24 xl:self-start xl:col-span-3">
             <PreviewGrid
               previews={previews}
               isProcessing={isProcessing}
@@ -343,7 +341,7 @@ export default function Dashboard() {
       </main>
 
       <ActionBar
-        totalEmails={calculateRecipientCount(csvData)}
+        totalEmails={previews.length}
         sentEmails={sentEmails}
         failedEmails={failedEmails.size}
         isSending={isSending}

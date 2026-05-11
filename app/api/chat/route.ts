@@ -45,7 +45,11 @@ export async function POST(req: Request) {
     }
 
     const latestMessage = messages[messages.length - 1].content;
-    const finalPrompt = `${contextDataSummary}\n\nUser request: ${latestMessage}`;
+    const finalPrompt = `System Instruction: You are an AI Email Outreach Assistant. If you suggest an email draft, template, or a specific snippet of text for the user to use, you MUST wrap it completely inside a markdown code block (using triple backticks \`\`\`) so that it can be easily copied by the user. Do not just use bold text for templates, use code blocks.
+
+${contextDataSummary}
+
+User request: ${latestMessage}`;
 
     const result = await chat.sendMessage(finalPrompt);
     const reply = result.response.text();

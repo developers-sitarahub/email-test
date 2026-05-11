@@ -188,7 +188,7 @@ export function InputSection({ onDataChange }: InputSectionProps) {
       transition={{ duration: 0.5, delay: 0.1 }}
       className="rounded-2xl border border-border bg-card overflow-hidden shadow-xl shadow-primary/5 dark:shadow-none"
     >
-      <div className="px-6 py-4 border-b border-border bg-gradient-to-r from-primary/5 via-accent/5 to-transparent dark:from-primary/10 dark:via-accent/10">
+      <div className="px-4 sm:px-6 py-4 border-b border-border bg-gradient-to-r from-primary/5 via-accent/5 to-transparent dark:from-primary/10 dark:via-accent/10">
         <div className="flex items-center gap-3">
           <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-accent shadow-lg shadow-primary/20">
             <Users className="w-4 h-4 text-white" />
@@ -223,7 +223,7 @@ export function InputSection({ onDataChange }: InputSectionProps) {
         ))}
       </div>
 
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         <AnimatePresence mode="wait">
           {activeTab === "csv" ? (
             <motion.div

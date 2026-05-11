@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Send, Bot, User, Sparkles, Code } from "lucide-react";
+import { Send, Bot, User, Sparkles, Code, Copy, Check } from "lucide-react";
 import Markdown from "markdown-to-jsx";
 import axios from "axios";
 
@@ -17,6 +17,57 @@ interface ChatInterfaceProps {
   session: any;
 }
 
+function CodeBlock({ children, onApply }: { children: any; onApply: (text: string) => void }) {
+  const [copied, setCopied] = useState(false);
+  
+  // Try to safely extract raw text from children
+  let rawText = "";
+  if (typeof children === "string") {
+    rawText = children;
+  } else if (children?.props?.children) {
+    if (typeof children.props.children === "string") {
+      rawText = children.props.children;
+    } else if (Array.isArray(children.props.children)) {
+      rawText = children.props.children.map((c: any) => typeof c === "string" ? c : c?.props?.children || "").join("");
+    }
+  }
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(rawText);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="relative group mt-3 mb-3 rounded-lg overflow-hidden border border-border">
+      <div className="flex items-center justify-between px-3 py-1.5 bg-muted/50 border-b border-border text-xs text-muted-foreground">
+        <span>Template / Snippet</span>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleCopy}
+            className="flex items-center gap-1 hover:text-foreground transition-colors"
+            title="Copy to clipboard"
+          >
+            {copied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
+            <span>{copied ? "Copied" : "Copy"}</span>
+          </button>
+          <button
+            onClick={() => onApply(rawText)}
+            className="flex items-center gap-1 hover:text-foreground transition-colors"
+            title="Apply as Master Prompt"
+          >
+            <Code className="w-3.5 h-3.5" />
+            <span>Apply</span>
+          </button>
+        </div>
+      </div>
+      <pre className="bg-background p-3 text-xs overflow-x-auto whitespace-pre-wrap">
+        {children}
+      </pre>
+    </div>
+  );
+}
+
 export function ChatInterface({ onApplyPrompt, csvHeaders, session }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([
     { 
@@ -28,8 +79,14 @@ export function ChatInterface({ onApplyPrompt, csvHeaders, session }: ChatInterf
     const [isLoading, setIsLoading] = useState(false);
     const endOfMessagesRef = useRef<HTMLDivElement>(null);
 
+    const [isInitialRender, setIsInitialRender] = useState(true);
+
     useEffect(() => {
-        endOfMessagesRef.current?.scrollIntoView({ behavior: "smooth" });
+        if (isInitialRender) {
+            setIsInitialRender(false);
+            return;
+        }
+        endOfMessagesRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }, [messages]);
 
     const handleSend = async () => {
@@ -65,14 +122,14 @@ export function ChatInterface({ onApplyPrompt, csvHeaders, session }: ChatInterf
             animate={{ opacity: 1, y: 0 }}
             className="rounded-2xl border border-border bg-card overflow-hidden shadow-xl shadow-accent/5 dark:shadow-none flex flex-col h-[500px]"
         >
-            <div className="px-6 py-4 border-b border-border bg-gradient-to-r from-accent/5 via-primary/5 to-transparent">
+            <div className="px-4 sm:px-6 py-4 border-b border-border bg-gradient-to-r from-accent/5 via-primary/5 to-transparent">
                 <div className="flex items-center gap-3">
                     <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-accent to-primary shadow-lg shadow-accent/20">
                         <Sparkles className="w-4 h-4 text-white" />
                     </div>
                     <div>
                         <h2 className="text-sm font-semibold text-foreground">AI Email Assistant</h2>
-                        <p className="text-xs text-muted-foreground">Chat with Gemini to perfect your template</p>
+                        <p className="text-xs text-muted-foreground">Chat with Gemini</p>
                     </div>
                 </div>
             </div>
@@ -96,22 +153,7 @@ export function ChatInterface({ onApplyPrompt, csvHeaders, session }: ChatInterf
                                             overrides: {
                                                 pre: {
                                                     component: ({ children, ...props }: any) => {
-                                                        // Extract raw text to apply as prompt
-                                                        const rawText = children?.props?.children || "";
-                                                        return (
-                                                            <div className="relative group mt-2 mb-2">
-                                                                <pre {...props} className="bg-background border border-border p-3 flex rounded-lg text-xs overflow-x-auto">
-                                                                    {children}
-                                                                </pre>
-                                                                <button
-                                                                    onClick={() => handleApplySnippet(rawText)}
-                                                                    className="absolute top-2 right-2 bg-accent hover:bg-accent/80 text-white p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                                                                    title="Apply as Master Prompt"
-                                                                >
-                                                                    <Code className="w-3 h-3" />
-                                                                </button>
-                                                            </div>
-                                                        );
+                                                        return <CodeBlock onApply={handleApplySnippet}>{children}</CodeBlock>;
                                                     }
                                                 }
                                             }
@@ -119,7 +161,6 @@ export function ChatInterface({ onApplyPrompt, csvHeaders, session }: ChatInterf
                                     >
                                         {msg.content}
                                     </Markdown>
-                                    <p className="text-[10px] mt-2 opacity-60 italic">Hover over any code block to apply it to your Master Prompt.</p>
                                 </div>
                             ) : (
                                 msg.content

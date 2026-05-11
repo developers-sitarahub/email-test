@@ -31,24 +31,24 @@ export function ActionBar({
       transition={{ duration: 0.5, delay: 0.4 }}
       className="fixed bottom-0 left-0 right-0 z-50 pointer-events-none"
     >
-      <div className="mx-auto max-w-7xl px-6 pb-6">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 pb-4 sm:pb-6">
         <motion.div
           initial={{ y: 20 }}
           animate={{ y: 0 }}
-          className="flex items-center justify-between gap-6 px-6 py-5 rounded-2xl border border-border bg-card/95 backdrop-blur-xl shadow-2xl shadow-primary/10 dark:shadow-black/20 pointer-events-auto"
+          className="flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-6 px-4 sm:px-6 py-4 rounded-2xl border border-border bg-card/95 backdrop-blur-xl shadow-2xl shadow-primary/10 dark:shadow-black/20 pointer-events-auto"
         >
           {/* Stats Section */}
-          <div className="flex items-center gap-8">
+          <div className="flex items-center gap-4 sm:gap-8 w-full sm:w-auto overflow-x-auto sm:overflow-visible no-scrollbar pb-2 sm:pb-0">
             {/* Total Recipients */}
-            <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-primary/20 to-accent/20">
-                <Users className="w-5 h-5 text-primary dark:text-accent" />
+            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+              <div className="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-primary/20 to-accent/20">
+                <Users className="w-4 h-4 sm:w-5 sm:h-5 text-primary dark:text-accent" />
               </div>
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <p className="text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                   Recipients
                 </p>
-                <p className="text-xl font-bold text-foreground tabular-nums">
+                <p className="text-lg sm:text-xl font-bold text-foreground tabular-nums">
                   {totalEmails}
                 </p>
               </div>
@@ -59,26 +59,26 @@ export function ActionBar({
               <motion.div
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
-                className="flex items-center gap-6"
+                className="flex items-center gap-4 sm:gap-6 shrink-0"
               >
                 {/* Sent Stats */}
-                <div className="flex items-center gap-3">
-                  <div className={`flex items-center justify-center w-10 h-10 rounded-xl ${
+                <div className="flex items-center gap-2 sm:gap-3 border-l border-border pl-4 sm:pl-0 sm:border-0">
+                  <div className={`flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-xl ${
                     isComplete && failedEmails === 0
                       ? "bg-gradient-to-br from-success/20 to-success/10" 
                       : "bg-secondary"
                   }`}>
                     {isComplete && failedEmails === 0 ? (
-                      <CheckCircle2 className="w-5 h-5 text-success" />
+                      <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 text-success" />
                     ) : (
-                      <Send className="w-5 h-5 text-muted-foreground" />
+                      <Send className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground" />
                     )}
                   </div>
                   <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    <p className="text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                       {isComplete && failedEmails === 0 ? "Completed" : "Sent"}
                     </p>
-                    <p className={`text-xl font-bold tabular-nums ${
+                    <p className={`text-lg sm:text-xl font-bold tabular-nums ${
                       isComplete && failedEmails === 0 ? "text-success" : "text-foreground"
                     }`}>
                       {sentEmails}
@@ -88,15 +88,15 @@ export function ActionBar({
 
                 {/* Failed Stats */}
                 {failedEmails > 0 && (
-                  <div className="flex items-center gap-3 border-l border-border pl-6">
-                    <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-destructive/10">
-                      <AlertTriangle className="w-5 h-5 text-destructive" />
+                  <div className="flex items-center gap-2 sm:gap-3 border-l border-border pl-4 sm:pl-6 shrink-0">
+                    <div className="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-destructive/10">
+                      <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 text-destructive" />
                     </div>
                     <div>
-                      <p className="text-[10px] font-semibold uppercase tracking-wider text-destructive/80">
+                      <p className="text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider text-destructive/80">
                         Failed
                       </p>
-                      <p className="text-xl font-bold tabular-nums text-destructive">
+                      <p className="text-lg sm:text-xl font-bold tabular-nums text-destructive">
                         {failedEmails}
                       </p>
                     </div>
@@ -111,17 +111,17 @@ export function ActionBar({
             <motion.div
               initial={{ opacity: 0, scaleX: 0.8 }}
               animate={{ opacity: 1, scaleX: 1 }}
-              className="flex-1 max-w-md"
+              className="flex-1 max-w-md w-full"
             >
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-medium text-muted-foreground">
-                  Sending emails...
+              <div className="flex items-center justify-between mb-1 sm:mb-2">
+                <span className="text-[11px] sm:text-xs font-medium text-muted-foreground">
+                  Sending...
                 </span>
-                <span className="text-xs font-bold text-foreground tabular-nums">
+                <span className="text-[11px] sm:text-xs font-bold text-foreground tabular-nums">
                   {Math.round(progress)}%
                 </span>
               </div>
-              <div className="h-2 rounded-full bg-secondary overflow-hidden">
+              <div className="h-1.5 sm:h-2 rounded-full bg-secondary overflow-hidden">
                 <motion.div
                   initial={{ width: 0 }}
                   animate={{ width: `${progress}%` }}
@@ -132,16 +132,16 @@ export function ActionBar({
             </motion.div>
           )}
 
-          {/* Success/Warning Message */}
+          {/* Success/Warning Message - Hidden on very small mobile if sending to save space */}
           {isComplete && (
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
-              className={`flex-1 flex items-center justify-center gap-2 ${failedEmails > 0 ? "text-destructive" : "text-success"}`}
+              className={`hidden md:flex flex-1 items-center justify-center gap-2 ${failedEmails > 0 ? "text-destructive" : "text-success"}`}
             >
               {failedEmails > 0 ? <AlertTriangle className="w-5 h-5" /> : <CheckCircle2 className="w-5 h-5" />}
               <span className="text-sm font-semibold">
-                {failedEmails > 0 ? `Finished with ${failedEmails} failed emails.` : "All emails sent successfully!"}
+                {failedEmails > 0 ? `Finished with ${failedEmails} failed.` : "All emails sent!"}
               </span>
             </motion.div>
           )}
@@ -152,7 +152,7 @@ export function ActionBar({
             whileTap={{ scale: 0.98 }}
             onClick={onSendAll}
             disabled={!hasGeneratedPreviews || isSending || totalEmails === 0 || isComplete}
-            className={`flex items-center gap-3 px-8 py-4 rounded-xl font-semibold transition-all ${
+            className={`w-full sm:w-auto flex items-center justify-center gap-3 px-6 sm:px-8 py-3 sm:py-4 rounded-xl font-semibold transition-all text-sm sm:text-base ${
               isComplete
                 ? failedEmails > 0 ? "bg-secondary text-foreground cursor-default" : "bg-success/10 text-success cursor-default"
                 : "bg-gradient-to-r from-primary to-accent text-white shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none"
@@ -165,7 +165,7 @@ export function ActionBar({
               </>
             ) : isComplete ? (
               <>
-                {failedEmails > 0 ? <AlertTriangle className="w-5 h-5" /> : <CheckCircle2 className="w-5 h-5" />}
+                {failedEmails > 0 ? <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5" /> : <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5" />}
                 <span>Complete</span>
               </>
             ) : (

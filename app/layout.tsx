@@ -3,14 +3,68 @@ import { Geist, Geist_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { ThemeProvider } from '@/components/theme-provider'
 import { NextAuthProvider } from '@/app/NextAuthProvider'
+import { DashboardShell } from '@/components/dashboard/dashboard-shell'
 import './globals.css'
 
 const _geist = Geist({ subsets: ["latin"] });
 const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: 'Mail by GPSERP',
-  description: 'AI-powered email outreach platform for personalized cold emails — Mail by GPSERP',
+  metadataBase: new URL('https://mail.gpserp.com'),
+  title: {
+    default: 'Mail by GPSERP - AI-Powered Email Outreach Platform',
+    template: '%s | Mail by GPSERP',
+  },
+  description: 'AI-powered email outreach platform for personalized cold emails. Scale your campaigns with intelligent personalization and high deliverability.',
+  keywords: [
+    'email outreach',
+    'AI email generator',
+    'cold email software',
+    'GPSERP',
+    'email marketing automation',
+    'personalized bulk email'
+  ],
+  authors: [{ name: 'GPSERP', url: 'https://mail.gpserp.com' }],
+  creator: 'GPSERP',
+  publisher: 'GPSERP',
+  formatDetection: {
+    email: false,
+    address: false,
+    telephone: false,
+  },
+  openGraph: {
+    title: 'Mail by GPSERP - AI-Powered Email Outreach Platform',
+    description: 'AI-powered email outreach platform for personalized cold emails. Scale your campaigns effortlessly.',
+    url: 'https://mail.gpserp.com',
+    siteName: 'Mail by GPSERP',
+    images: [
+      {
+        url: '/og-image.png',
+        width: 1200,
+        height: 630,
+        alt: 'Mail by GPSERP',
+      },
+    ],
+    locale: 'en_US',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Mail by GPSERP - AI-Powered Email Outreach',
+    description: 'AI-powered email outreach platform for personalized cold emails.',
+    images: ['/og-image.png'],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
   verification: {
     google: 'l8XGPLZkoAaO3sVYk_lZhJDPltoGiqT0kmi9wAxpP68',
   },
@@ -48,7 +102,9 @@ export default function RootLayout({
             enableSystem
             disableTransitionOnChange
           >
-            {children}
+            <DashboardShell>
+              {children}
+            </DashboardShell>
           </ThemeProvider>
         </NextAuthProvider>
         {process.env.NODE_ENV === 'production' && <Analytics />}
