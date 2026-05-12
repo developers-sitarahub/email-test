@@ -7,7 +7,7 @@ import { getFreshAccessToken } from "@/lib/google-auth";
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { prompt, model, csvData, campaignName, include, config, campaignId, hasHeader } = body;
+    const { prompt, model, csvData, campaignName, include, config, campaignId, hasHeader, brandProfileId } = body;
 
     if (!prompt || !csvData || !Array.isArray(csvData) || csvData.length === 0) {
       return NextResponse.json({ error: "Invalid request payload" }, { status: 400 });
@@ -17,6 +17,14 @@ export async function POST(request: Request) {
     if (!(session?.user as any)?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const userAccessToken = await getFreshAccessToken((session!.user as any).id);
+
+    // ── Fetch Brand Context ────────────────────────────────────────
+    let brandContext: any = null;
+    if (brandProfileId) {
+      brandContext = await prisma.brandProfile.findUnique({
+        where: { id: brandProfileId, userId: (session.user as any).id }
+      });
+    }
 
     // ── Prepare Data ───────────────────────────────────────────────
     let headers: string[] = [];
@@ -91,32 +99,59 @@ export async function POST(request: Request) {
         return `Recipient ${i + idx + 1}:\n${JSON.stringify(map, null, 2)}`;
       }).join("\n\n---\n\n");
 
+      const brandSection = brandContext
+        ? `
+### BRAND CONTEXT
+Brand Name: ${brandContext.brandName}
+${brandContext.industry ? `Industry: ${brandContext.industry}` : ""}
+${brandContext.companyDescription ? `Company Description: ${brandContext.companyDescription}` : ""}
+${brandContext.targetAudience ? `Target Audience: ${brandContext.targetAudience}` : ""}
+${brandContext.tone ? `Preferred Tone: ${brandContext.tone}` : ""}
+${brandContext.primaryGoal ? `Primary Goal: ${brandContext.primaryGoal}` : ""}
+${brandContext.defaultCtaText ? `Default CTA: ${brandContext.defaultCtaText}` : ""}
+`
+        : "";
+
       const batchPrompt = `You are a world-class AI email strategist specializing in hyper-personalization.
 Your goal is to generate unique, high-converting emails based on a user strategy and raw recipient data.
+
+${brandSection}
 
 User Strategy: "${prompt}"
 
 ### GUIDELINES:
 1. **SELF-DRIVEN DISCOVERY**: Analyze the keys and values in the JSON for each recipient. Identify the most interesting data points (e.g., Setup Cost, Revenue, City, USP) and weave them into the narrative automatically.
 2. **NO PLACEHOLDERS**: Do not use generic phrases like "your work" if specific data like "franchise expansion in Delhi" is available. Use the actual data from the fields.
-3. **TONE**: Maintain the spirit of the User Strategy while sounding like a real person who has researched the recipient's specific data.
+3. **TONE**: Maintain the spirit of the ${brandContext?.tone ? "Preferred Tone" : "User Strategy"} while sounding like a real person who has researched the recipient's specific data.
 4. **STRUCTURE**: Respect these UI settings:
-   - Header Image: ${include?.headerImage ? 'Include a relevant image block' : 'Do NOT include image blocks'}
-   - CTA: ${include?.cta ? `Include a CTA button (Text: "${config?.ctaText}", Link: "${config?.ctaLink}")` : 'Do NOT include CTA blocks'}
-   - Signature: ${include?.signature ? `Include a signature block (Details: "${config?.signature}")` : 'Do NOT include signature blocks'}
+   - Header Image: Handled by the system (Do NOT include image blocks in the JSON)
+   - CTA: Handled by the system (Do NOT include CTA blocks in the JSON)
+   - Signature: Handled by the system (Do NOT include signature blocks in the JSON)
+5. **EMAIL BODY STRUCTURE** (MANDATORY):
+   - The FIRST text block MUST be a warm, personalized greeting (e.g., "Dear [Name]," or "Hi [Name],"). Add a blank line after it.
+   - The body MUST be split into AT LEAST 3 separate text blocks (paragraphs). Do NOT put the entire email into a single text block.
+   - Paragraph 1: Hook — open with something specific to the recipient's data to grab attention.
+   - Paragraph 2: Value — explain the core benefit or opportunity relevant to them.
+   - Paragraph 3: Call to action / closing — wrap up and guide them to next steps.
+   - Each paragraph text block (starting from Paragraph 1) MUST begin with exactly 4 spaces (indentation).
+   - Each paragraph should be concise (2-4 sentences). Leave a blank line between paragraphs.
 
 Recipients (${batch.length}):
 ${batchContext}
 
 ### OUTPUT FORMAT:
 You MUST output ONLY a valid JSON array with ${batch.length} objects. No markdown. No intro/outro.
-Each object:
+Each object MUST follow this multi-block structure:
 {
   "subject": "Compelling, data-driven subject line",
   "blocks": [
-    { "type": "text | image | cta | signature", "content": { "text": "...", "url": "...", "link": "..." } }
+    { "type": "text", "content": { "text": "Dear [Recipient Name]," } },
+    { "type": "text", "content": { "text": "[Paragraph 1 — personalized hook based on their data]" } },
+    { "type": "text", "content": { "text": "[Paragraph 2 — value proposition]" } },
+    { "type": "text", "content": { "text": "[Paragraph 3 — closing / next steps]" } }
   ]
-}`;
+}
+IMPORTANT: The "blocks" array must have the greeting as the first item, followed by separate paragraph blocks. Never merge the entire email body into one block.`;
 
       // ── Updated Model List (NO 1.5) ─────────────────────────────
       const selectedModel = model?.startsWith("models/") ? model : `models/${model || "gemini-3-flash-preview"}`;

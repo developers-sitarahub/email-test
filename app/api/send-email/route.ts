@@ -62,13 +62,19 @@ export async function POST(req: Request) {
     if (blockData?.blocks && Array.isArray(blockData.blocks)) {
       blockData.blocks.forEach((block: any) => {
         if (block.type === 'text') {
-           htmlContent += `<p style="margin: 0 0 16px 0; text-align: ${block.styles?.alignment || 'left'}; font-size: ${block.styles?.fontSize || '15px'}; color: ${block.styles?.color || '#1f2937'};">${(block.content?.text || '').replace(/\n/g, "<br />")}</p>`;
+           const text = (block.content?.text || '');
+           // Replace leading spaces with non-breaking spaces for email client compatibility
+           const indentedText = text.replace(/^ +/gm, (match) => '&nbsp;'.repeat(match.length));
+           htmlContent += `<p style="margin: 0 0 16px 0; text-align: ${block.styles?.alignment || 'left'}; font-size: ${block.styles?.fontSize || '15px'}; color: ${block.styles?.color || '#1f2937'}; white-space: pre-wrap;">${indentedText.replace(/\n/g, "<br />")}</p>`;
         } else if (block.type === 'image') {
            htmlContent += `<div style="text-align: ${block.styles?.alignment || 'center'}; margin: 16px 0;"><img src="${block.content?.url || 'https://images.unsplash.com/photo-1579389083078-4e7018379f7e?w=800&q=80'}" alt="Header" style="max-width: 100%; height: auto; border-radius: 8px;" /></div>`;
         } else if (block.type === 'cta') {
-           htmlContent += `<div style="text-align: ${block.styles?.alignment || 'center'}; margin: 32px 0;"><a href="${block.content?.link || '#'}" style="display: inline-block; padding: 14px 28px; background-color: ${block.styles?.backgroundColor || '#4f46e5'}; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: ${block.styles?.fontSize || '15px'};">${block.content?.text || 'Click Here'}</a></div>`;
+           const btnColor = block.styles?.backgroundColor || '#2563eb';
+           htmlContent += `<div style="text-align: ${block.styles?.alignment || 'center'}; margin: 36px 0;">
+             <a href="${block.content?.link || '#'}" style="display: inline-block; padding: 12px 32px; background-color: ${btnColor}; color: #ffffff; text-decoration: none; border-radius: 12px; font-weight: 600; font-size: 15px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">${block.content?.text || 'Click Here'}</a>
+           </div>`;
         } else if (block.type === 'signature') {
-           htmlContent += `<div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #e5e7eb; text-align: ${block.styles?.alignment || 'left'}; font-size: ${block.styles?.fontSize || '14px'}; color: ${block.styles?.color || '#4b5563'};">${(block.content?.text || '').replace(/\n/g, "<br />")}</div>`;
+           htmlContent += `<div style="margin-top: 40px; padding-top: 24px; border-top: 1px solid #e5e7eb; text-align: ${block.styles?.alignment || 'left'}; font-size: 14px; color: #374151; line-height: 1.6;">${(block.content?.text || '').replace(/\n/g, "<br />")}</div>`;
         }
       });
     } else {

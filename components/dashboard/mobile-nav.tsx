@@ -41,6 +41,7 @@ export function MobileNav({ onMenuClick }: { onMenuClick?: () => void }) {
               width={32}
               height={32}
               className="w-8 h-8 object-contain rounded-lg border border-border/50 bg-white"
+              priority
             />
             <span className="text-sm font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
               Mail GPSERP
@@ -56,9 +57,8 @@ export function MobileNav({ onMenuClick }: { onMenuClick?: () => void }) {
           const isActive = pathname === href;
           return (
             <Link key={href} href={href} className="relative">
-              <div className={`flex flex-col items-center gap-1 transition-colors ${
-                isActive ? "text-primary" : "text-muted-foreground"
-              }`}>
+              <div className={`flex flex-col items-center gap-1 transition-colors ${isActive ? "text-primary" : "text-muted-foreground"
+                }`}>
                 <Icon className="w-5 h-5" />
                 <span className="text-[10px] font-medium">{label}</span>
                 {isActive && (

@@ -297,49 +297,86 @@ export function PreviewGrid({
                                     </div>
                                   )}
 
-                                  <div className="flex flex-col gap-3">
+                                  <div className="flex flex-col gap-4 pt-1">
+                                    {/* Persistent Header — always at the top */}
+                                    {includeHeaderImage !== false && (customHeaderImage || (parsed.blocks?.find((b: any) => b.type === 'image')?.content?.url)) && (
+                                      <div className="mb-2 text-center">
+                                        <img 
+                                          src={customHeaderImage || parsed.blocks?.find((b: any) => b.type === 'image')?.content?.url} 
+                                          alt="Header" 
+                                          className="max-w-full h-auto rounded-lg" 
+                                          style={{ maxHeight: '200px', objectFit: 'cover', display: 'inline-block' }} 
+                                        />
+                                      </div>
+                                    )}
+
                                     {parsed.blocks.map((block: any, idx: number) => {
                                       if (block.type === 'text') {
+                                        const isGreeting = idx === 0;
                                         return (
-                                          <p key={idx} style={{ textAlign: block.styles?.alignment || 'left', fontSize: block.styles?.fontSize || '14px' }} className="whitespace-pre-wrap leading-relaxed text-foreground">
+                                          <p
+                                            key={idx}
+                                            style={{ textAlign: block.styles?.alignment || 'left', fontSize: block.styles?.fontSize || '14px' }}
+                                            className={`whitespace-pre-wrap leading-relaxed text-foreground ${isGreeting ? 'mb-1 font-medium' : 'mt-1'}`}
+                                          >
                                             {block.content?.text}
                                           </p>
                                         );
                                       }
-                                      if (block.type === 'image') {
-                                        if (includeHeaderImage === false) return null;
-                                        const imgUrl = (includeHeaderImage && customHeaderImage) ? customHeaderImage : (block.content?.url || "https://images.unsplash.com/photo-1579389083078-4e7018379f7e?w=600&q=80");
-                                        return (
-                                          <div key={idx} style={{ textAlign: block.styles?.alignment || 'center' }} className="my-2">
-                                            <img src={imgUrl} alt="Email Header" className="max-w-full h-auto rounded-lg" style={{ maxHeight: '200px', objectFit: 'cover', display: 'inline-block' }} />
-                                          </div>
-                                        );
-                                      }
-                                      if (block.type === 'cta') {
-                                        if (includeCta === false) return null;
-                                        return (
-                                          <div key={idx} style={{ textAlign: block.styles?.alignment || 'center' }} className="mt-4 mb-2">
-                                            <a href={block.content?.link || ctaLink} style={{ backgroundColor: block.styles?.backgroundColor || '#4f46e5', color: '#fff', fontSize: block.styles?.fontSize || '14px' }} className="inline-block px-6 py-2.5 font-medium rounded-lg no-underline hover:opacity-90">
-                                              {block.content?.text || ctaText}
-                                            </a>
-                                          </div>
-                                        );
-                                      }
-                                      if (block.type === 'signature') {
-                                        if (includeSignature === false) return null;
-                                        if (includeSignature && customSignatureHtml) {
-                                          return (
-                                            <div key={idx} style={{ textAlign: block.styles?.alignment || 'left', fontSize: block.styles?.fontSize || '14px' }} className="mt-4 pt-4 border-t border-border text-foreground dark:[&_*]:!text-foreground" dangerouslySetInnerHTML={{ __html: customSignatureHtml }} />
-                                          );
-                                        }
-                                        return (
-                                          <div key={idx} style={{ textAlign: block.styles?.alignment || 'left', fontSize: block.styles?.fontSize || '14px' }} className="mt-4 pt-4 border-t border-border whitespace-pre-wrap text-muted-foreground dark:[&_*]:!text-muted-foreground">
-                                            {block.content?.text || signature}
-                                          </div>
-                                        );
-                                      }
                                       return null;
                                     })}
+
+                                    {/* Persistent CTA — always after the body */}
+                                    {includeCta !== false && (ctaText || ctaLink) && (
+                                      <div className="mt-6 mb-4 text-center">
+                                        <a 
+                                          href={ctaLink || "#"} 
+                                          style={{ 
+                                            backgroundColor: '#2563eb', 
+                                            color: '#ffffff', 
+                                            fontSize: '14px',
+                                            padding: '12px 32px',
+                                            fontWeight: '600',
+                                            borderRadius: '12px',
+                                            textDecoration: 'none',
+                                            display: 'inline-block',
+                                            boxShadow: '0 4px 6px -1px rgba(37, 99, 235, 0.2), 0 2px 4px -1px rgba(37, 99, 235, 0.1)',
+                                            transition: 'all 0.2s ease'
+                                          }} 
+                                          className="hover:opacity-90 hover:scale-[1.02] active:scale-[0.98]"
+                                        >
+                                          {ctaText || 'Click Here'}
+                                        </a>
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  {/* Persistent Signature — always shown if enabled */}
+                                  {includeSignature !== false && (customSignatureHtml || signature) && (
+                                    <div className="mt-4 pt-4 border-t border-border">
+                                      {customSignatureHtml && customSignatureHtml !== "manual" ? (
+                                        <div
+                                          className="text-sm text-foreground dark:[&_*]:!text-foreground leading-relaxed"
+                                          dangerouslySetInnerHTML={{ __html: customSignatureHtml }}
+                                        />
+                                      ) : (
+                                        <div
+                                          className="text-sm text-foreground dark:[&_*]:!text-foreground leading-relaxed"
+                                          dangerouslySetInnerHTML={{ __html: signature.replace(/\n/g, '<br/>') }}
+                                        />
+                                      )}
+                                    </div>
+                                  )}
+
+                                  {/* Email Footer */}
+                                  <div className="mt-6 pt-4 border-t border-border/50">
+                                    <p className="text-[11px] text-muted-foreground/60 text-center leading-relaxed">
+                                      You are receiving this email because you opted in or have an existing relationship with us.
+                                      <br />
+                                      <span className="hover:text-muted-foreground cursor-pointer underline underline-offset-2">Unsubscribe</span>
+                                      {" · "}
+                                      <span className="hover:text-muted-foreground cursor-pointer underline underline-offset-2">Privacy Policy</span>
+                                    </p>
                                   </div>
                                 </div>
                               );

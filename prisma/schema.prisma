@@ -2,8 +2,7 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider        = "prisma-client-js"
-  previewFeatures = ["driverAdapters"]
+  provider = "prisma-client-js"
 }
 
 datasource db {
@@ -49,6 +48,7 @@ model User {
   accounts       Account[]
   sessions       Session[]
   campaigns      Campaign[]
+  brandProfiles  BrandProfile[]
   geminiUsage    GeminiUsage[]
   createdAt      DateTime       @default(now())
 }
@@ -65,7 +65,79 @@ model Campaign {
   updatedAt   DateTime      @updatedAt
 
   user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  brandProfileId String?
+  brandProfile   BrandProfile? @relation(fields: [brandProfileId], references: [id])
   drafts      EmailDraft[]
+}
+
+model BrandProfile {
+  id                 String           @id @default(cuid())
+  userId             String
+  brandName          String
+  websiteUrl         String?
+  companyDescription String?
+  industry           String?
+  targetAudience     String?
+  tone               String?
+  primaryGoal        String?
+  defaultSignature   String?
+  defaultCtaText     String?
+  defaultCtaLink     String?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  user               User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  campaigns          Campaign[]
+  signatures         BrandSignature[]
+  ctas               BrandCta[]
+  headers            BrandHeader[]
+
+  @@index([userId])
+}
+
+model BrandSignature {
+  id        String       @id @default(cuid())
+  brandId   String
+  name      String
+  content   String
+  imageUrl  String?
+  imageLink String?
+  isDefault Boolean      @default(false)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  brand BrandProfile @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  @@index([brandId])
+}
+
+model BrandCta {
+  id        String       @id @default(cuid())
+  brandId   String
+  name      String
+  text      String
+  link      String
+  isDefault Boolean      @default(false)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  brand BrandProfile @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  @@index([brandId])
+}
+
+model BrandHeader {
+  id        String       @id @default(cuid())
+  brandId   String
+  name      String
+  imageUrl  String
+  isDefault Boolean      @default(false)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  brand BrandProfile @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  @@index([brandId])
 }
 
 // Each row is one personalized email draft inside a Campaign.

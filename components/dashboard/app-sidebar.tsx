@@ -15,6 +15,7 @@ import {
   ChevronRight,
   Zap,
   X,
+  Building2,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -27,6 +28,11 @@ const NAV_ITEMS = [
     label: "History",
     href: "/history",
     icon: History,
+  },
+  {
+    label: "Brand Profiles",
+    href: "/brands",
+    icon: Building2,
   },
 ];
 
@@ -64,9 +70,9 @@ export function AppSidebar({ isMobile, onOpenChange, isCollapsed: collapsed, onC
       <div className={`flex items-center px-4 py-5 border-b border-border ${collapsed && !isMobile ? "justify-center" : "justify-between"}`}>
         <div className="flex items-center gap-3 min-w-0">
           <Link href="/" onClick={() => isMobile && onOpenChange?.(false)} className="shrink-0">
-            <motion.div 
+            <motion.div
               animate={{ scale: collapsed && !isMobile ? 0.8 : 1 }}
-              whileHover={{ scale: 1.05 }} 
+              whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
               <div className="relative">
@@ -123,11 +129,10 @@ export function AppSidebar({ isMobile, onOpenChange, isCollapsed: collapsed, onC
                 layout
                 whileHover={{ x: (collapsed && !isMobile) ? 0 : 4 }}
                 whileTap={{ scale: 0.98 }}
-                className={`relative flex items-center transition-all cursor-pointer group ${
-                  isActive
-                    ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                } ${collapsed && !isMobile ? "justify-center w-12 h-12 mx-auto rounded-xl" : "gap-3 px-4 py-3 rounded-2xl"}`}
+                className={`relative flex items-center transition-all cursor-pointer group ${isActive
+                  ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  } ${collapsed && !isMobile ? "justify-center w-12 h-12 mx-auto rounded-xl" : "gap-3 px-4 py-3 rounded-2xl"}`}
                 title={collapsed && !isMobile ? label : undefined}
               >
                 <Icon className={`w-5 h-5 shrink-0 transition-transform ${isActive ? "scale-110" : "group-hover:scale-110"}`} strokeWidth={isActive ? 2.5 : 2} />
@@ -169,9 +174,8 @@ export function AppSidebar({ isMobile, onOpenChange, isCollapsed: collapsed, onC
 
         {session && (
           <div
-            className={`flex items-center gap-3 rounded-2xl p-2 transition-all hover:bg-muted/50 ${
-              collapsed && !isMobile ? "justify-center w-12 h-12 mx-auto" : ""
-            }`}
+            className={`flex items-center gap-3 rounded-2xl p-2 transition-all hover:bg-muted/50 ${collapsed && !isMobile ? "justify-center w-12 h-12 mx-auto" : ""
+              }`}
           >
             <div className="relative shrink-0">
               <img

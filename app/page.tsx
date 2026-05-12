@@ -35,6 +35,8 @@ export default function Dashboard() {
   const [isSending, setIsSending] = useState(false);
   const [sentEmails, setSentEmails] = useState(0);
   const [failedEmails, setFailedEmails] = useState<Set<number>>(new Set());
+  const [brands, setBrands] = useState<any[]>([]);
+  const [selectedBrandId, setSelectedBrandId] = useState<string>("");
 
   // Email Design Settings
   const [signature, setSignature] = useState("Best regards,\n" + (session?.user?.name || "The Team"));
@@ -55,6 +57,10 @@ export default function Dashboard() {
         if (res.data.headerImage) setCustomHeaderImage(res.data.headerImage);
         if (res.data.signatureHtml) setCustomSignatureHtml(res.data.signatureHtml);
       }).catch(err => console.error("Failed to load settings", err));
+
+      axios.get("/api/brands").then((res) => {
+        setBrands(res.data.brands);
+      }).catch(err => console.error("Failed to load brands", err));
     }
   }, [status]);
 
@@ -73,6 +79,56 @@ export default function Dashboard() {
     if (data.length === 0) return 0;
     return hasDataHeader ? Math.max(0, data.length - 1) : data.length;
   }, [hasDataHeader]);
+
+  useEffect(() => {
+    if (!selectedBrandId) {
+      setIncludeSignature(false);
+      setIncludeCta(false);
+      setIncludeHeaderImage(false);
+      setCustomSignatureHtml(null);
+      setCustomHeaderImage(null);
+      return;
+    }
+    const brand = brands.find(b => b.id === selectedBrandId);
+    if (!brand) return;
+
+    // Apply basic brand context
+    if (brand.tone) setPrompt(p => p.includes(`Tone: ${brand.tone}`) ? p : `${p}\n\nTone: ${brand.tone}`);
+    
+    // Apply default CTA if set
+    if (brand.defaultCtaText) setCtaText(brand.defaultCtaText);
+    if (brand.defaultCtaLink) setCtaLink(brand.defaultCtaLink);
+    if (brand.defaultCtaText || brand.defaultCtaLink) setIncludeCta(true);
+
+    // Apply Brand Assets (new system)
+    const defaultSig = brand.signatures?.find((s: any) => s.isDefault);
+    if (defaultSig) {
+      setCustomSignatureHtml(defaultSig.content);
+      setIncludeSignature(true);
+    } else if (brand.defaultSignature) {
+      setSignature(brand.defaultSignature);
+      setIncludeSignature(true);
+    } else {
+      setIncludeSignature(false);
+    }
+
+    const defaultCta = brand.ctas?.find((c: any) => c.isDefault);
+    if (defaultCta) {
+      setCtaText(defaultCta.text);
+      setCtaLink(defaultCta.link);
+      setIncludeCta(true);
+    } else {
+      setIncludeCta(false);
+    }
+
+    const defaultHeader = brand.headers?.find((h: any) => h.isDefault);
+    if (defaultHeader) {
+      setCustomHeaderImage(defaultHeader.imageUrl);
+      setIncludeHeaderImage(true);
+    } else {
+      setIncludeHeaderImage(false);
+    }
+  }, [selectedBrandId, brands]);
 
   const handleDataChange = useCallback((data: string[][], isHeader: boolean = true) => {
     setCsvData(data);
@@ -105,6 +161,7 @@ export default function Dashboard() {
           csvData: batchCsvData,
           hasHeader,
           campaignId: currentCampaignId,
+          brandProfileId: selectedBrandId,
           include: { headerImage: includeHeaderImage, cta: includeCta, signature: includeSignature },
           config: { signature, ctaText, ctaLink }
         });
@@ -170,8 +227,8 @@ export default function Dashboard() {
     for (let i = 0; i < previews.length; i++) {
       const preview = previews[i];
       try {
-        let recipientEmail = preview.recipientEmail && preview.recipientEmail !== "INVALID_EMAIL" 
-          ? preview.recipientEmail 
+        let recipientEmail = preview.recipientEmail && preview.recipientEmail !== "INVALID_EMAIL"
+          ? preview.recipientEmail
           : "";
 
         if (!recipientEmail) {
@@ -197,19 +254,29 @@ export default function Dashboard() {
           }
 
           // Inject custom header and signature if applicable
-          if (customHeaderImage && includeHeaderImage) {
-            const headerBlock = parsedPayload.blocks.find((b: any) => b.type === 'image');
-            if (headerBlock) {
-              headerBlock.content.url = customHeaderImage;
-            } else {
-              parsedPayload.blocks.unshift({ type: 'image', content: { url: customHeaderImage }, styles: { alignment: 'center' } });
-            }
+          parsedPayload.blocks = parsedPayload.blocks.filter((b: any) => b.type !== 'image');
+          if (includeHeaderImage && customHeaderImage) {
+            parsedPayload.blocks.unshift({ type: 'image', content: { url: customHeaderImage }, styles: { alignment: 'center' } });
           }
-          if (customSignatureHtml && includeSignature) {
-            const sigBlock = parsedPayload.blocks.find((b: any) => b.type === 'signature');
-            if (sigBlock) {
-              sigBlock.content.text = customSignatureHtml;
-              sigBlock.isHtml = true;
+          // Enforce CTA before signature
+          parsedPayload.blocks = parsedPayload.blocks.filter((b: any) => b.type !== 'cta');
+          if (includeCta && (ctaText || ctaLink)) {
+            parsedPayload.blocks.push({ type: 'cta', content: { text: ctaText, link: ctaLink } });
+          }
+
+          if (includeSignature) {
+            const sigHtml = (customSignatureHtml && customSignatureHtml !== "manual") 
+              ? customSignatureHtml 
+              : signature.replace(/\n/g, '<br/>');
+            
+            if (sigHtml) {
+              const sigBlock = parsedPayload.blocks.find((b: any) => b.type === 'signature');
+              if (sigBlock) {
+                sigBlock.content.text = sigHtml;
+                sigBlock.isHtml = true;
+              } else {
+                parsedPayload.blocks.push({ type: 'signature', content: { text: sigHtml }, isHtml: true });
+              }
             }
           }
         }
@@ -309,12 +376,15 @@ export default function Dashboard() {
                 setCustomSignatureHtml(val);
                 saveSettings(customHeaderImage, val);
               }}
+              brands={brands}
+              selectedBrandId={selectedBrandId}
+              onBrandChange={setSelectedBrandId}
               attachments={attachments}
               onAttachmentsChange={setAttachments}
             />
-            <ChatInterface 
-              onApplyPrompt={setPrompt} 
-              csvHeaders={csvData.length > 0 ? csvData[0] : []} 
+            <ChatInterface
+              onApplyPrompt={setPrompt}
+              csvHeaders={csvData.length > 0 ? csvData[0] : []}
               session={session}
             />
           </div>
