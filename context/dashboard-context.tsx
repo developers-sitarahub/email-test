@@ -2,11 +2,11 @@
 
 import React, { createContext, useContext, useState, useCallback } from "react";
 
-interface EmailPreview {
-  recipientEmail: string;
+export interface EmailPreview {
+  recipientEmail?: string;
   generated: any;
   original: any;
-  status?: "pending" | "sent" | "failed";
+  status?: string;
 }
 
 interface DashboardContextType {
@@ -29,19 +29,19 @@ interface DashboardContextType {
   failedEmails: Set<number>;
 
   // Setters
-  setCsvData: (data: string[][]) => void;
-  setHasDataHeader: (val: boolean) => void;
-  setFileName: (name: string | null) => void;
-  setActiveTab: (tab: "csv" | "manual" | "data") => void;
-  setManualInput: (val: string) => void;
-  setParsedData: (data: string[][]) => void;
-  setTotalRecipients: (count: number) => void;
-  setCcEmail: (val: string) => void;
-  setPrompt: (val: string) => void;
-  setModel: (val: string) => void;
+  setCsvData: React.Dispatch<React.SetStateAction<string[][]>>;
+  setHasDataHeader: React.Dispatch<React.SetStateAction<boolean>>;
+  setFileName: React.Dispatch<React.SetStateAction<string | null>>;
+  setActiveTab: React.Dispatch<React.SetStateAction<"csv" | "manual" | "data">>;
+  setManualInput: React.Dispatch<React.SetStateAction<string>>;
+  setParsedData: React.Dispatch<React.SetStateAction<string[][]>>;
+  setTotalRecipients: React.Dispatch<React.SetStateAction<number>>;
+  setCcEmail: React.Dispatch<React.SetStateAction<string>>;
+  setPrompt: React.Dispatch<React.SetStateAction<string>>;
+  setModel: React.Dispatch<React.SetStateAction<string>>;
   setPreviews: React.Dispatch<React.SetStateAction<EmailPreview[]>>;
-  setHeaders: (headers: string[]) => void;
-  setIsProcessing: (val: boolean) => void;
+  setHeaders: React.Dispatch<React.SetStateAction<string[]>>;
+  setIsProcessing: React.Dispatch<React.SetStateAction<boolean>>;
   setFailedEmails: React.Dispatch<React.SetStateAction<Set<number>>>;
   
   // Helpers

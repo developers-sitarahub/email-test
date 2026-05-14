@@ -11,14 +11,7 @@ import { ChatInterface } from "@/components/dashboard/chat-interface";
 import { PreviewGrid } from "@/components/dashboard/preview-grid";
 import { ActionBar } from "@/components/dashboard/action-bar";
 
-interface EmailPreview {
-  original: any;
-  generated: string;
-  status?: string;
-  recipientEmail?: string;
-}
-
-import { useDashboard } from "../context/dashboard-context";
+import { useDashboard, EmailPreview } from "../context/dashboard-context";
 
 export default function Dashboard() {
   const { data: session, status } = useSession();
