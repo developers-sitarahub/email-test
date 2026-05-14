@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../../../../auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
+import { uploadBase64ToS3, processHtmlForS3 } from "@/lib/s3-upload";
 
 async function ownsProfile(brandId: string, userId: string) {
   const profile = await prisma.brandProfile.findFirst({ where: { id: brandId, userId } });
@@ -26,7 +27,12 @@ export async function PATCH(
         await prisma.brandSignature.updateMany({ where: { brandId: id }, data: { isDefault: false } });
         await prisma.brandSignature.update({ where: { id: assetId }, data: { isDefault: true } });
       } else {
-        const { name, content, imageUrl, imageLink } = updates;
+        let { name, content, imageUrl, imageLink } = updates;
+        
+        if (content) {
+          content = await processHtmlForS3(content);
+        }
+        
         await prisma.brandSignature.update({
           where: { id: assetId },
           data: { name, content, imageUrl: imageUrl || null, imageLink: imageLink || null },
@@ -52,7 +58,15 @@ export async function PATCH(
         await prisma.brandHeader.updateMany({ where: { brandId: id }, data: { isDefault: false } });
         await prisma.brandHeader.update({ where: { id: assetId }, data: { isDefault: true } });
       } else {
-        await prisma.brandHeader.update({ where: { id: assetId }, data: updates });
+        let { imageUrl, name } = updates;
+        
+        if (imageUrl && imageUrl.startsWith('data:image/')) {
+          const [header, base64] = imageUrl.split(',');
+          const imgType = header.match(/:(.*?);/)?.[1] || 'image/png';
+          imageUrl = await uploadBase64ToS3(base64, imgType);
+        }
+        
+        await prisma.brandHeader.update({ where: { id: assetId }, data: { ...updates, imageUrl } });
       }
       const item = await prisma.brandHeader.findUnique({ where: { id: assetId } });
       return NextResponse.json({ item });
@@ -60,6 +74,7 @@ export async function PATCH(
 
     return NextResponse.json({ error: "Invalid type" }, { status: 400 });
   } catch (e: any) {
+    console.error("Asset update error:", e);
     return NextResponse.json({ error: e.message }, { status: 500 });
   }
 }

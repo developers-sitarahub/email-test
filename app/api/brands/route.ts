@@ -2,17 +2,20 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
+import { processHtmlForS3 } from "@/lib/s3-upload";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
-    if (!(session?.user as any)?.id)
+    const userId = (session?.user as any)?.id;
+
+    if (!userId)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const brands = await prisma.brandProfile.findMany({
-      where: { userId: (session.user as any).id },
+      where: { userId },
       include: {
         signatures: true,
         ctas: true,
@@ -34,11 +37,13 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions);
-    if (!(session?.user as any)?.id)
+    const userId = (session?.user as any)?.id;
+
+    if (!userId)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await request.json();
-    const {
+    let {
       brandName,
       websiteUrl,
       companyDescription,
@@ -57,9 +62,14 @@ export async function POST(request: Request) {
         { status: 400 }
       );
 
+    // Process default signature for base64 images
+    if (defaultSignature) {
+      defaultSignature = await processHtmlForS3(defaultSignature);
+    }
+
     const brand = await prisma.brandProfile.create({
       data: {
-        user: { connect: { id: (session.user as any).id } },
+        user: { connect: { id: userId } },
         brandName,
         websiteUrl,
         companyDescription,

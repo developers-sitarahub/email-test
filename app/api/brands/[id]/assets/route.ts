@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../../../auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
+import { uploadBase64ToS3, processHtmlForS3 } from "@/lib/s3-upload";
 
 async function ownsProfile(brandId: string, userId: string) {
   const profile = await prisma.brandProfile.findFirst({ where: { id: brandId, userId } });
@@ -33,7 +34,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const { type, ...data } = await req.json();
 
     if (type === "signature") {
-      const { name, content, imageUrl, imageLink, isDefault } = data;
+      let { name, content, imageUrl, imageLink, isDefault } = data;
+      
+      // Process signature content for base64 images
+      if (content) {
+        content = await processHtmlForS3(content);
+      }
+      
       if (isDefault) await prisma.brandSignature.updateMany({ where: { brandId: id }, data: { isDefault: false } });
       const item = await prisma.brandSignature.create({
         data: {
@@ -64,7 +71,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     }
 
     if (type === "header") {
-      const { name, imageUrl, isDefault } = data;
+      let { name, imageUrl, isDefault } = data;
+      
+      // Process header image if it's base64
+      if (imageUrl && imageUrl.startsWith('data:image/')) {
+        const [header, base64] = imageUrl.split(',');
+        const imgType = header.match(/:(.*?);/)?.[1] || 'image/png';
+        imageUrl = await uploadBase64ToS3(base64, imgType);
+      }
+      
       if (isDefault) await prisma.brandHeader.updateMany({ where: { brandId: id }, data: { isDefault: false } });
       const item = await prisma.brandHeader.create({
         data: {
@@ -79,6 +94,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     return NextResponse.json({ error: "Invalid type" }, { status: 400 });
   } catch (e: any) {
+    console.error("Asset creation error:", e);
     return NextResponse.json({ error: e.message }, { status: 500 });
   }
 }

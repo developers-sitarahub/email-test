@@ -120,19 +120,21 @@ ${brandSection}
 User Strategy: "${prompt}"
 
 ### GUIDELINES:
-1. **SELF-DRIVEN DISCOVERY**: Analyze the keys and values in the JSON for each recipient. Identify the most interesting data points (e.g., Setup Cost, Revenue, City, USP) and weave them into the narrative automatically.
-2. **NO PLACEHOLDERS**: Do not use generic phrases like "your work" if specific data like "franchise expansion in Delhi" is available. Use the actual data from the fields.
-3. **TONE**: Maintain the spirit of the ${brandContext?.tone ? "Preferred Tone" : "User Strategy"} while sounding like a real person who has researched the recipient's specific data.
-4. **STRUCTURE**: Respect these UI settings:
+1. **PRIORITY**: If the **User Strategy** above contains specific instructions about the email's length, structure, word count, or styling (such as indentation or paragraph count), you MUST prioritize those instructions over the default rules below.
+2. **SELF-DRIVEN DISCOVERY**: Analyze the keys and values in the JSON for each recipient. Identify the most interesting data points (e.g., Setup Cost, Revenue, City, USP) and weave them into the narrative automatically.
+3. **NO PLACEHOLDERS**: Do not use generic phrases like "your work" if specific data is available.
+4. **TONE**: Maintain the spirit of the ${brandContext?.tone ? "Preferred Tone" : "User Strategy"} while sounding like a real person.
+5. **STRUCTURE**: Respect these UI settings:
    - Header Image: Handled by the system (Do NOT include image blocks in the JSON)
    - CTA: Handled by the system (Do NOT include CTA blocks in the JSON)
    - Signature: Handled by the system (Do NOT include signature blocks in the JSON)
-5. **EMAIL BODY STRUCTURE** (MANDATORY):
+
+6. **DEFAULT EMAIL BODY STRUCTURE** (Use ONLY if User Strategy is silent on structure):
    - The FIRST text block MUST be a warm, personalized greeting (e.g., "Dear [Name]," or "Hi [Name],"). Add a blank line after it.
    - The body MUST be split into AT LEAST 3 separate text blocks (paragraphs). Do NOT put the entire email into a single text block.
-   - Paragraph 1: Hook — open with something specific to the recipient's data to grab attention.
-   - Paragraph 2: Value — explain the core benefit or opportunity relevant to them.
-   - Paragraph 3: Call to action / closing — wrap up and guide them to next steps.
+   - Paragraph 1: Hook — open with something specific to the recipient's data.
+   - Paragraph 2: Value — explain the core benefit or opportunity.
+   - Paragraph 3: Call to action / closing — wrap up and guide them.
    - Each paragraph text block (starting from Paragraph 1) MUST begin with exactly 4 spaces (indentation).
    - Each paragraph should be concise (2-4 sentences). Leave a blank line between paragraphs.
 
@@ -141,17 +143,18 @@ ${batchContext}
 
 ### OUTPUT FORMAT:
 You MUST output ONLY a valid JSON array with ${batch.length} objects. No markdown. No intro/outro.
-Each object MUST follow this multi-block structure:
+Each object MUST follow a multi-block structure. If the user requested a specific structure, follow that; otherwise, use the default greeting + 3-paragraph structure.
+Example Default Structure:
 {
   "subject": "Compelling, data-driven subject line",
   "blocks": [
     { "type": "text", "content": { "text": "Dear [Recipient Name]," } },
-    { "type": "text", "content": { "text": "[Paragraph 1 — personalized hook based on their data]" } },
-    { "type": "text", "content": { "text": "[Paragraph 2 — value proposition]" } },
-    { "type": "text", "content": { "text": "[Paragraph 3 — closing / next steps]" } }
+    { "type": "text", "content": { "text": "    [Paragraph 1]" } },
+    { "type": "text", "content": { "text": "    [Paragraph 2]" } },
+    { "type": "text", "content": { "text": "    [Paragraph 3]" } }
   ]
 }
-IMPORTANT: The "blocks" array must have the greeting as the first item, followed by separate paragraph blocks. Never merge the entire email body into one block.`;
+IMPORTANT: Never merge the entire email body into one block.`;
 
       // ── Updated Model List (NO 1.5) ─────────────────────────────
       const selectedModel = model?.startsWith("models/") ? model : `models/${model || "gemini-3-flash-preview"}`;

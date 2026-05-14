@@ -6,11 +6,12 @@ import { getFreshAccessToken } from "@/lib/google-auth";
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
+    const user = session?.user as any;
+    if (!user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const userAccessToken = await getFreshAccessToken(session.user.id);
+    const userAccessToken = await getFreshAccessToken(user.id);
 
     const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models", {
       headers: { "Authorization": `Bearer ${userAccessToken}` }

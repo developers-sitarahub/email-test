@@ -244,7 +244,12 @@ export default function Dashboard() {
           // Inject custom header and signature if applicable
           parsedPayload.blocks = parsedPayload.blocks.filter((b: any) => b.type !== 'image');
           if (includeHeaderImage && customHeaderImage) {
-            parsedPayload.blocks.unshift({ type: 'image', content: { url: customHeaderImage }, styles: { alignment: 'center' } });
+            parsedPayload.blocks.unshift({ 
+              type: 'image', 
+              content: { url: customHeaderImage }, 
+              styles: { alignment: 'center' },
+              isSaved: true 
+            });
           }
           // Enforce CTA before signature
           parsedPayload.blocks = parsedPayload.blocks.filter((b: any) => b.type !== 'cta');
@@ -262,8 +267,14 @@ export default function Dashboard() {
               if (sigBlock) {
                 sigBlock.content.text = sigHtml;
                 sigBlock.isHtml = true;
+                sigBlock.isSaved = true;
               } else {
-                parsedPayload.blocks.push({ type: 'signature', content: { text: sigHtml }, isHtml: true });
+                parsedPayload.blocks.push({ 
+                  type: 'signature', 
+                  content: { text: sigHtml }, 
+                  isHtml: true,
+                  isSaved: true 
+                });
               }
             }
           }

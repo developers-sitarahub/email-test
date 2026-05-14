@@ -39,15 +39,37 @@ interface ConfigPanelProps {
   onAttachmentsChange?: (val: { name: string, type: string, content: string }[]) => void;
 }
 
-// Helper to handle image uploads
-const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, callback: (base64: string) => void) => {
+// Helper to handle image uploads to S3
+const handleImageUploadToS3 = async (
+  e: React.ChangeEvent<HTMLInputElement>, 
+  callback: (url: string) => void,
+  setLoading?: (loading: boolean) => void
+) => {
   const file = e.target.files?.[0];
   if (file) {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      callback(reader.result as string);
-    };
-    reader.readAsDataURL(file);
+    if (setLoading) setLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+      
+      const data = await res.json();
+      if (data.url) {
+        callback(data.url);
+      } else {
+        console.error("Upload failed:", data.error);
+        alert("Upload failed: " + (data.error || "Unknown error"));
+      }
+    } catch (err) {
+      console.error("Upload error:", err);
+      alert("Upload failed. Please try again.");
+    } finally {
+      if (setLoading) setLoading(false);
+    }
   }
 };
 
@@ -76,6 +98,7 @@ export function BrandDesignPanel({
   onAttachmentsChange,
 }: Partial<ConfigPanelProps>) {
   const [openSection, setOpenSection] = useState<"header" | "cta" | "signature" | "attachments" | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const signatureRef = useRef<HTMLDivElement>(null);
 
   const handleAttachmentUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -204,9 +227,23 @@ export function BrandDesignPanel({
                         {includeHeaderImage && (
                           <div className="mt-2">
                             {customHeaderImage === "manual" && (
-                              <label className="flex flex-col items-center justify-center w-full min-h-[100px] border-2 border-dashed border-border rounded-xl bg-secondary/5 hover:bg-secondary/10 transition-colors cursor-pointer">
-                                <span className="text-xs font-medium text-muted-foreground">Click to upload header image</span>
-                                <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, (b64) => onCustomHeaderImageChange?.(b64))} />
+                              <label className="flex flex-col items-center justify-center w-full min-h-[100px] border-2 border-dashed border-border rounded-xl bg-secondary/5 hover:bg-secondary/10 transition-colors cursor-pointer relative overflow-hidden">
+                                {isUploadingImage ? (
+                                  <div className="flex flex-col items-center gap-2">
+                                    <Loader2 className="w-5 h-5 text-primary animate-spin" />
+                                    <span className="text-[10px] font-bold uppercase tracking-widest text-primary">Uploading...</span>
+                                  </div>
+                                ) : (
+                                  <>
+                                    <span className="text-xs font-medium text-muted-foreground">Click to upload header image</span>
+                                    <input 
+                                      type="file" 
+                                      accept="image/*" 
+                                      className="hidden" 
+                                      onChange={(e) => handleImageUploadToS3(e, (url) => onCustomHeaderImageChange?.(url), setIsUploadingImage)} 
+                                    />
+                                  </>
+                                )}
                               </label>
                             )}
                             {customHeaderImage && customHeaderImage !== "manual" && (
@@ -219,7 +256,12 @@ export function BrandDesignPanel({
                                 {!brands?.find(b => b.id === selectedBrandId)?.headers.find((h: any) => h.imageUrl === customHeaderImage) && (
                                   <label className="text-[10px] uppercase tracking-widest font-bold text-primary cursor-pointer hover:text-primary/80 transition-colors">
                                     Change Image
-                                    <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, (b64) => onCustomHeaderImageChange?.(b64))} />
+                                    <input 
+                                      type="file" 
+                                      accept="image/*" 
+                                      className="hidden" 
+                                      onChange={(e) => handleImageUploadToS3(e, (url) => onCustomHeaderImageChange?.(url), setIsUploadingImage)} 
+                                    />
                                   </label>
                                 )}
                               </div>

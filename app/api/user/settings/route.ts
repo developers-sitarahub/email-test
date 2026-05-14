@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { prisma } from "@/lib/prisma";
 import { authOptions } from "../../auth/[...nextauth]/route";
+import { uploadBase64ToS3, processHtmlForS3 } from "@/lib/s3-upload";
 
 export async function GET() {
   try {
@@ -36,7 +37,19 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { headerImage, signatureHtml } = body;
+    let { headerImage, signatureHtml } = body;
+
+    // Process header image if it's base64
+    if (headerImage && headerImage.startsWith('data:image/')) {
+      const [header, base64] = headerImage.split(',');
+      const imgType = header.match(/:(.*?);/)?.[1] || 'image/png';
+      headerImage = await uploadBase64ToS3(base64, imgType);
+    }
+
+    // Process signature HTML for base64 images
+    if (signatureHtml) {
+      signatureHtml = await processHtmlForS3(signatureHtml);
+    }
 
     const user = await prisma.user.update({
       where: { email: session.user.email },
