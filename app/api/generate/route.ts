@@ -66,17 +66,38 @@ export async function POST(request: Request) {
     }
 
     // ── Robust Email Column Detection ─────────────────────────────
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const globalEmailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z0-9.-]+/g;
+
+    const extractEmails = (val: any): string[] => {
+      if (val === undefined || val === null) return [];
+      const str = String(val).trim();
+      if (!str) return [];
+      const parts = str.split(/[\s,;\/]+/);
+      const matched: string[] = [];
+      parts.forEach(part => {
+        const clean = part.trim();
+        if (emailRegex.test(clean)) {
+          matched.push(clean);
+        }
+      });
+      if (matched.length === 0) {
+        const matches = str.match(globalEmailRegex);
+        if (matches) {
+          matches.forEach(m => matched.push(m.trim()));
+        }
+      }
+      return Array.from(new Set(matched));
+    };
+
     let emailColIdx = headers.findIndex(h => /email|mail|address/i.test(h));
 
-    // Pattern for a real email
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-    if (emailColIdx === -1 || !dataToProcess.some(row => emailRegex.test(String(row[emailColIdx])))) {
+    if (emailColIdx === -1 || !dataToProcess.some(row => extractEmails(row[emailColIdx]).length > 0)) {
       // Deep scan all columns for the first one that has a high percentage of emails
       for (let j = 0; j < headers.length; j++) {
         let emailCount = 0;
         for (let r = 0; r < Math.min(dataToProcess.length, 10); r++) {
-          if (emailRegex.test(String(dataToProcess[r][j]).trim())) emailCount++;
+          if (extractEmails(dataToProcess[r][j]).length > 0) emailCount++;
         }
         if (emailCount >= 1) { // If at least one row in the sample matches
           emailColIdx = j;
@@ -220,9 +241,13 @@ IMPORTANT: Never merge the entire email body into one block.`;
     // ── Save Results (Filtered & Validated) ────────────────────────
     const draftData: any[] = [];
     dataToProcess.forEach((row, i) => {
-      // Find ALL valid emails in this specific row
-      const allEmailsInRow = row.map(c => String(c).trim()).filter(c => emailRegex.test(c));
-      const targetEmails = allEmailsInRow.length > 0 ? Array.from(new Set(allEmailsInRow)) : ["INVALID_EMAIL"];
+      // Find ALL valid emails in this specific row across all columns
+      const allEmailsInRow: string[] = [];
+      row.forEach(cell => {
+        allEmailsInRow.push(...extractEmails(cell));
+      });
+      const uniqueEmailsInRow = Array.from(new Set(allEmailsInRow));
+      const targetEmails = uniqueEmailsInRow.length > 0 ? uniqueEmailsInRow : ["INVALID_EMAIL"];
 
       targetEmails.forEach(rawEmail => {
         const isValidEmail = rawEmail !== "INVALID_EMAIL";

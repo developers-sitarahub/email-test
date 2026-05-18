@@ -10,6 +10,8 @@ import { ConfigPanel, BrandDesignPanel } from "@/components/dashboard/config-pan
 import { ChatInterface } from "@/components/dashboard/chat-interface";
 import { PreviewGrid } from "@/components/dashboard/preview-grid";
 import { ActionBar } from "@/components/dashboard/action-bar";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 import { useDashboard, EmailPreview } from "../context/dashboard-context";
 
@@ -128,6 +130,10 @@ export default function Dashboard() {
 
   const handleProcess = useCallback(async () => {
     if (csvData.length === 0) return;
+    if (!prompt || !prompt.trim()) {
+      toast.error("Please provide a Master Prompt to guide the email generation.");
+      return;
+    }
     setIsProcessing(true);
     setPreviews([]);
     setHeaders([]);
@@ -138,6 +144,7 @@ export default function Dashboard() {
       setTotalRecipients(dataRows.length);
       let currentCampaignId: string | undefined = undefined;
       const BATCH_SIZE = 4;
+      let accumulatedPreviewsCount = 0;
 
       for (let i = 0; i < dataRows.length; i += BATCH_SIZE) {
         const batchRows = dataRows.slice(i, i + BATCH_SIZE);
@@ -164,18 +171,21 @@ export default function Dashboard() {
         }
 
         const processedPreviews: EmailPreview[] = results;
+        const currentBaseIdx = accumulatedPreviewsCount;
+        accumulatedPreviewsCount += processedPreviews.length;
         setPreviews((prev) => [...prev, ...processedPreviews]);
 
         setFailedEmails((prev) => {
           const newFailed = new Set(prev);
           processedPreviews.forEach((p, idx) => {
             if (p.status === "failed") {
-              newFailed.add(i + idx);
+              newFailed.add(currentBaseIdx + idx);
             }
           });
           return newFailed;
         });
       }
+      setTotalRecipients(accumulatedPreviewsCount);
     } catch (error: any) {
       console.error("Error generating emails:", error);
       const msg = error.response?.data?.error || error.message;
@@ -469,6 +479,7 @@ export default function Dashboard() {
           hasGeneratedPreviews={previews.length > 0}
         />
       )}
+      <ToastContainer position="bottom-right" theme="dark" autoClose={4000} />
     </div>
   );
 }
