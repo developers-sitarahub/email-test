@@ -5,6 +5,30 @@ import { Upload, Users, FileSpreadsheet, X, CheckCircle2, Maximize, Layers } fro
 import { useState, useCallback } from "react";
 import * as XLSX from "xlsx";
 
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const globalEmailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z0-9.-]+/g;
+
+const extractEmails = (val: any): string[] => {
+  if (val === undefined || val === null) return [];
+  const str = String(val).trim();
+  if (!str) return [];
+  const parts = str.split(/[\s,;\/]+/);
+  const matched: string[] = [];
+  parts.forEach(part => {
+    const clean = part.trim();
+    if (emailRegex.test(clean)) {
+      matched.push(clean);
+    }
+  });
+  if (matched.length === 0) {
+    const matches = str.match(globalEmailRegex);
+    if (matches) {
+      matches.forEach(m => matched.push(m.trim()));
+    }
+  }
+  return Array.from(new Set(matched));
+};
+
 interface InputSectionProps {
   onDataChange: (data: string[][], hasHeader: boolean, fileName: string | null, tab: "csv" | "manual" | "data") => void;
   activeTab: "csv" | "manual" | "data";
@@ -36,6 +60,20 @@ export function InputSection({
 
   // Sync rowCount locally when global parsedData changes
   const [localParsedData, setLocalParsedData] = useState<string[][]>([]);
+
+  const getUniqueEmailsCount = () => {
+    if (!parsedData || parsedData.length === 0) return 0;
+    const dataRows = hasHeaderRow ? parsedData.slice(1) : parsedData;
+    const allEmails: string[] = [];
+    dataRows.forEach(row => {
+      row.forEach(cell => {
+        allEmails.push(...extractEmails(cell));
+      });
+    });
+    return Array.from(new Set(allEmails)).length;
+  };
+
+  const uniqueEmailsCount = getUniqueEmailsCount();
   
   const setActiveTab = (tab: "csv" | "manual" | "data") => {
     onDataChange(parsedData, hasHeaderRow, fileName, tab);
@@ -97,10 +135,9 @@ export function InputSection({
     } catch (e) {
       console.error("AI parse failed, using fallback", e);
       // Fallback
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (processed.length > 1) {
-        const firstRowHasEmail = processed[0].some(c => emailRegex.test(c));
-        const secondRowHasEmail = processed[1].some(c => emailRegex.test(c));
+        const firstRowHasEmail = processed[0].some(c => extractEmails(c).length > 0);
+        const secondRowHasEmail = processed[1].some(c => extractEmails(c).length > 0);
         hasHeader = !(firstRowHasEmail && !secondRowHasEmail);
       } else {
         hasHeader = true;
@@ -159,10 +196,7 @@ export function InputSection({
 
   const handleManualSubmit = () => {
     if (manualInput.trim()) {
-      const emails = manualInput
-        .split(/[\n,]/)
-        .map((email) => email.trim())
-        .filter((email) => email && email.includes("@"));
+      const emails = extractEmails(manualInput);
       const data = [["Email"], ...emails.map(e => [e])];
       onDataChange(data, true, "Manual Entry", "data");
     }
@@ -199,14 +233,14 @@ export function InputSection({
               <p className="text-xs text-muted-foreground">Import your contact list</p>
             </div>
           </div>
-          {rowCount > 0 && (
+          {uniqueEmailsCount > 0 && (
             <motion.div
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               className="px-3 py-1 rounded-full bg-primary/10 border border-primary/20"
             >
               <span className="text-[10px] font-bold text-primary uppercase tracking-wider">
-                {rowCount} {rowCount === 1 ? 'Recipient' : 'Recipients'} Found
+                {uniqueEmailsCount} {uniqueEmailsCount === 1 ? 'Recipient' : 'Recipients'} Found
               </span>
             </motion.div>
           )}
@@ -272,7 +306,7 @@ export function InputSection({
                           <CheckCircle2 className="w-4 h-4 text-success" />
                         </div>
                         <p className="text-xs text-muted-foreground mt-0.5">
-                          {rowCount} Recipients found
+                          {uniqueEmailsCount} Recipients found
                           {sheetNames.length > 1 && ` · ${sheetNames.length} sheets`}
                         </p>
                       </div>
@@ -398,7 +432,7 @@ export function InputSection({
                               <tr key={originalRowIndex} className="transition-colors hover:bg-secondary/20">
                                 <td className="px-4 py-2 text-muted-foreground/60 text-center border-r border-border/50 font-mono text-[10px]">{startIndex + i + 1}</td>
                                 {row.map((cell, j) => {
-                                  const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(cell).trim());
+                                  const isEmail = extractEmails(cell).length > 0;
                                   return (
                                     <td key={j} className={`px-4 py-2 whitespace-nowrap max-w-[250px] truncate ${isEmail ? "text-primary font-medium bg-primary/5" : "text-foreground"}`} title={String(cell)}>{String(cell)}</td>
                                   );
